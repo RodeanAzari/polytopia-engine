@@ -12,8 +12,11 @@
 - 2026-11-05: Java 17 + Ninja installed. Tribes compiles; our headless bridge `oracle/bridge/OracleRun.java`
   runs a game with all seeds fixed; `make oracle-smoke` confirms byte-identical output across runs.
 
+- 2026-11-05: Rule-facts sheet section 1 (`docs/rules/01-constants.md`): all static tables + 3 Tribes quirks.
+
 ### Next
-1. Extract a rule-facts sheet (`docs/rules/`) from the paper + Tribes source: units, terrain, techs, cities, combat.
+1. Rule-facts sheet, remaining sections: 02 combat + movement, 03 cities/economy/monuments, 04 turn flow,
+   fog, diplomacy, win conditions, 05 map generation. Resolve the `[TBD]`s in section 01.
 2. Design the state value type and the outcome-injection interface (ADR: state encoding).
 3. Oracle bridge: log Tribes actions, per-step state and random outcomes.
 
