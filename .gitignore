@@ -1,0 +1,9 @@
+build/
+.venv/
+__pycache__/
+*.pyc
+# Tribes is unlicensed: cloned locally by `make setup`, never committed (ADR-002)
+oracle/tribes/
+data/results/*
+!data/results/.gitkeep
+*:Zone.Identifier
