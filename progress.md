@@ -14,9 +14,10 @@
 
 - 2026-11-05: Rule-facts sheet section 1 (`docs/rules/01-constants.md`): all static tables + 3 Tribes quirks.
 - 2026-11-05: Section 2 (`docs/rules/02-combat-movement.md`): turn status, attack, movement, pushes.
+- 2026-11-05: Section 3a (`docs/rules/03a-cities-economy.md`): city growth, buildings, city actions, monuments, trade network.
 
 ### Next
-1. Rule-facts sheet, remaining sections: 03 cities/economy/monuments, 04 turn flow,
+1. Rule-facts sheet, remaining sections: 03b capture/ruins/explorer/borders/roads, 04 turn flow,
    fog, diplomacy, win conditions, 05 map generation. Resolve the `[TBD]`s in section 01.
 2. Design the state value type and the outcome-injection interface (ADR: state encoding). Include the
    move-generation decision: replicate Tribes' order-dependent Dijkstra + Java-like heap (§02.3).

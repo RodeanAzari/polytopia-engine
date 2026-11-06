@@ -38,7 +38,7 @@ Items marked **[Tribes quirk]** differ from the commercial game; we match Tribes
 
 - The starting tech is granted **alone, without its parent** (Hoodrick has Archery but not Hunting; Vengir has
   Smithery but not Mining). The parent can be researched later as normal.
-- Starting score = starting tech's tier × 100 (0 for Luxidoor). Luxidoor's special start (if any): **[TBD §cities]**.
+- Starting score = starting tech's tier × 100 (0 for Luxidoor). Luxidoor's special start (if any): **[TBD §03b]**.
 
 ## Units
 
@@ -87,7 +87,7 @@ Fresh → moved / attacked / moved-and-attacked / pushed → finished. Transitio
 | Attack scaling constant | 4.5 |
 | Defence bonus multiplier (terrain / fortify) | 1.5 |
 | Defence multiplier inside city walls | 4.0 |
-| Explorer steps (`NUM_STEPS`, ruin reward) | 15 — use: **[TBD §cities]** |
+| Explorer steps (`NUM_STEPS`, ruin reward) | 15 — use: **[TBD §03b]** |
 
 Damage formula: §02.2.
 
@@ -113,7 +113,7 @@ Shields has no tier-3 child.
 - **"All researched" flag [Tribes quirk]:** only re-evaluated right after researching a *leaf* tech
   (Shields, Aquatism, Chivalry, Construction, Mathematics, Navigation, Smithery, Spiritualism, Trade, Philosophy).
   A tribe whose last research is a non-leaf (possible when a leaf was a starting tech) never gets the flag.
-  Consumers of the flag: **[TBD]**.
+  Consumer: Tower of Wisdom unlock (§03a.5).
 - **Free research (ruins):** picks uniformly among currently researchable techs; does nothing if the flag is set
   or none is researchable. Injected in difftests.
 
@@ -147,8 +147,8 @@ Shields has no tier-3 child.
 | Mountain temple | 20 | 1 | Meditation | mountain | — | — |
 
 - Base buildings: Farm, Mine, Lumber hut. Each has one paired "multiplier" building (Windmill, Forge, Sawmill);
-  Port pairs with Customs house. Bonus semantics (population vs. per-neighbour): **[TBD §cities]**.
-- Port trade distance: 4 (the count includes the destination port). **[TBD §cities]**
+  Port pairs with Customs house. Semantics: §03a.3.
+- Port trade distance: 4 (the count includes the destination port). Path rules: §03a.6.
 
 ### Temples
 | Fact | Value |
@@ -164,13 +164,13 @@ Each starts *unavailable*, becomes *available* when its condition is met, and ca
 |---|---|---|
 | Altar of Peace | Meditation | 5 turns (of peace) |
 | Emperor's Tomb | Trade | 100 stars |
-| Eye of God | Navigation | **[TBD]** |
+| Eye of God | Navigation | all tiles revealed |
 | Gate of Power | — | 10 kills |
 | Grand Bazaar | Roads | 5 cities |
 | Park of Fortune | — | a city reaching level 5 |
-| Tower of Wisdom | Philosophy | **[TBD]** |
+| Tower of Wisdom | Philosophy | "all researched" flag |
 
-Exact unlock conditions: **[TBD §cities]**.
+Exact unlock conditions: §03a.5.
 
 ## City level-up rewards
 
@@ -185,7 +185,7 @@ On reaching a level, the tribe picks one of two rewards:
 
 - Score for the level-up reward = 50 − 5 × (reward level), i.e. 40 / 35 / 30 / 25 for levels 2 / 3 / 4 / 5.
   (A level-1 branch exists in code returning 100; no reward has level 1, so it is unreachable.)
-- Level 5 rewards also unlock Park of Fortune. **[TBD §cities]**
+- Level 5+ rewards (either one) unlock Park of Fortune (§03a.2).
 
 ## Ruins (Examine)
 
@@ -197,7 +197,7 @@ In difftests the outcome is **injected** from the Tribes log (ADR-002 §3).
 | Fact | Value |
 |---|---|
 | Capital production bonus | +1 star/turn |
-| Population needed / growth rules | **[TBD §cities]** |
+| Population needed / growth rules | §03a.1 |
 | Score per owned tile in borders | 20 |
 | Score per city centre | 100 |
 | Score per population | 5 |
