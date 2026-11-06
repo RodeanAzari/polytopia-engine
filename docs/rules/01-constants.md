@@ -12,7 +12,7 @@ Items marked **[Tribes quirk]** differ from the commercial game; we match Tribes
 | Turn limit, Score mode | 30 turns (ends when tick > 30, i.e. 31 ticks; 04 §8) |
 | Turn limit, Capitals mode | 50 turns (Tribes' experimental cap; ends when tick > 50) |
 | Starting stars per tribe | 5 |
-| Default square map side by player count (1..7 players) | 11, 14, 16, 18, 20, 22, 24 |
+| Default square map side by player count (2..8 players; 1 player unsupported) | 11, 14, 16, 18, 20, 22, 24 |
 | Terrain types | plain, shallow water, deep water, mountain, village, city, forest (+ "fog" as an observation-only value) |
 | Water terrain | shallow water, deep water |
 | Grid directions used for direction-based logic | none, left (−1,0), right (+1,0), up (0,−1), down (0,+1) |
