@@ -15,6 +15,7 @@
 - 2026-11-05: Rule-facts sheet section 1 (`docs/rules/01-constants.md`): all static tables + 3 Tribes quirks.
 - 2026-11-05: Section 2 (`docs/rules/02-combat-movement.md`): turn status, attack, movement, pushes.
 - 2026-11-05: Section 3a (`docs/rules/03a-cities-economy.md`): city growth, buildings, city actions, monuments, trade network.
+- 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5, hand-relayed only.
 
 ### Next
 1. Rule-facts sheet, remaining sections: 03b capture/ruins/explorer/borders/roads, 04 turn flow,
