@@ -18,7 +18,7 @@ A city has: level (starts 1), population (starts 0), population needed (starts 2
 - **Level up:** level += 1; population −= population needed (excess carries over); population needed = level + 1.
 - **Production** (stars per turn): if population ≥ 0, level + production bonus + (1 if capital); else **the
   negative population itself** [Tribes quirk: a city below zero population yields negative income].
-  When income is collected: **[TBD §turn flow]**.
+  When income is collected: 04 §3.
 - Production bonus never goes below 0 (clamped on every change).
 - Unit capacity: a city can hold level + 1 units.
 
@@ -75,7 +75,7 @@ Generated for every tile of C that has no building, for every building type. The
 - **Temples**: C gains +bonus population. Score: on build +100 (level-1 temple points); on destroy the
   temple's accumulated points are **added**, not subtracted [Tribes quirk].
   Temple levelling: a temple has level 1..5 and a 3-turn counter; each tick below level 5 the counter drops and
-  at 0 the temple levels up, scores that level's points and the counter resets. When ticks happen: **[TBD §turn flow]**.
+  at 0 the temple levels up, scores that level's points and the counter resets. When ticks happen: at the start of the owner's turn (04 §3).
 - **Monuments**: C gains +3 population; tribe score ±400.
 
 ### Destroy (city C, tile X)
@@ -103,7 +103,7 @@ Each monument goes *unavailable → available* once; Build moves it to *built*.
 
 | Monument | Becomes available when |
 |---|---|
-| Altar of Peace | pacifist counter reaches **exactly** 5 (it only counts up while the tribe has Meditation; any attack resets it). Counter tick: **[TBD §turn flow]**. [Tribes quirk] This sets *available* even if already *built*, so it can be rebuilt after another 5 peaceful turns. |
+| Altar of Peace | pacifist counter reaches **exactly** 5 (it only counts up while the tribe has Meditation; any attack resets it). Counter tick: at the start of the tribe's turn (04 §3). [Tribes quirk] This sets *available* even if already *built*, so it can be rebuilt after another 5 peaceful turns. |
 | Emperor's Tomb | after gaining stars, the tribe holds ≥ 100 (checked only when stars are added) |
 | Eye of God | after the tribe clears fog, **every** tile is revealed. Never in full-observability games. |
 | Gate of Power | tribe kill count reaches ≥ 10 |

@@ -18,11 +18,12 @@
 - 2026-11-05: Section 3b (`docs/rules/03b-capture-ruins-roads.md`): capture, ruins, explorer, borders, roads,
   other unit actions. Two 03a errors fixed (city-tile radius, network scope). Tribes builds with no fog →
   difftest both obs modes ([ADR-004](docs/adr/004-difftest-observability.md)).
+- 2026-11-05: Section 4 (`docs/rules/04-turns-diplomacy-end.md`): turn flow, action generation order, diplomacy,
+  agent observation, game end + ranking. All earlier `[TBD]`s resolved; tick count and send-stars bound probed on the oracle.
 - 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
 
 ### Next
-1. Rule-facts sheet, remaining sections: 04 turn flow, fog, diplomacy, win conditions; 05 map generation.
-   Resolve the remaining `[TBD]`s.
+1. Rule-facts sheet, last section: 05 map generation (LevelGenerator).
 2. Design the state value type and the outcome-injection interface (ADR: state encoding). Include the
    move-generation decision: replicate Tribes' order-dependent Dijkstra + Java-like heap (§02.3).
 3. Oracle bridge: log Tribes actions, per-step state and random outcomes. Two builds: stock (full obs) and

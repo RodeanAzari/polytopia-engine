@@ -68,7 +68,7 @@ defenceResult = round(defenceForce / total × T.def × 4.5)
 
 **Resolution, in order:**
 1. A's status transitions as for "attack" (section 1). A's tribe pacifist counter resets.
-2. Diplomacy repercussion for attacking, applied to (A's tribe, T's tribe). Details: **[TBD §diplomacy]**.
+2. Diplomacy repercussion for attacking, applied to (A's tribe, T's tribe). Details: section 04 §6.2.
 3. If T.hp ≤ attackResult — **kill**:
    - The attack repercussion is applied **a second time** [Tribes quirk].
    - A and A's tribe each get +1 kill (Knight: persist, section 1). T is removed: off the board, off its

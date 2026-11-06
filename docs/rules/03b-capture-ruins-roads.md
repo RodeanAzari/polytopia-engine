@@ -71,7 +71,7 @@ Generated at most once per unit.
 
 **City capture** (city C of tribe Q):
 1. Q's score −= C's points-worth; P's score += it.
-2. Diplomacy: capture repercussion (−30) applied to (P, Q), then consequences checked (**[TBD §diplomacy]**).
+2. Diplomacy: capture repercussion (−30) applied to (P, Q), then consequences checked (04 §6.2).
 3. U → Finished.
 4. C's owner → P, C appended to P's city list. Then for each building of C (list order), the 03a building
    effects are re-applied with sign +1 in **matching-only** mode, with P as the tribe (below).
@@ -83,7 +83,7 @@ Generated at most once per unit.
    No shuffle when the capital took them all.
 7. "Move one" (village step 5) for P into C.
 8. If Q now has no cities (native state only): Q **loses**: all of Q's units are removed from the board (city
-   units and tribe-owned units). No score is subtracted for them. Win/loss handling: **[TBD §win]**.
+   units and tribe-owned units). No score is subtracted for them. Win/loss handling: 04 §8.
 9. X's network flag set (recomputed).
 
 **Matching-only mode** (03a building effects, steps 4–5): the building's own population bonus (base
@@ -155,7 +155,7 @@ other terrain are ignored. No unit is created.
 | **Disband** | U Fresh; Free Spirit | +floor(U's cost / 2) stars; U removed; score −U's points |
 
 - Convert's diplomacy repercussion (−5) is applied to (P, T's tribe) **after** T's tribe was changed to P, so it
-  hits (P, P) [Tribes quirk], then consequences are checked for (P, P) (**[TBD §diplomacy]**). Convert ignores
+  hits (P, P) [Tribes quirk], then consequences are checked for (P, P) (04 §6.2). Convert ignores
   diplomacy status (can target allies).
 - Generation: Convert scans U's neighbourhood (radius = range) for other tribes' units; Heal others and the
   rest yield at most one action per unit.

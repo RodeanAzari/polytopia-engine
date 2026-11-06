@@ -9,8 +9,8 @@ Items marked **[Tribes quirk]** differ from the commercial game; we match Tribes
 | Fact | Value |
 |---|---|
 | Game modes | Capitals, Score |
-| Turn limit, Score mode | 30 turns |
-| Turn limit, Capitals mode | 50 turns (Tribes' experimental cap) |
+| Turn limit, Score mode | 30 turns (ends when tick > 30, i.e. 31 ticks; 04 §8) |
+| Turn limit, Capitals mode | 50 turns (Tribes' experimental cap; ends when tick > 50) |
 | Starting stars per tribe | 5 |
 | Default square map side by player count (1..7 players) | 11, 14, 16, 18, 20, 22, 24 |
 | Terrain types | plain, shallow water, deep water, mountain, village, city, forest (+ "fog" as an observation-only value) |
@@ -222,6 +222,6 @@ In difftests the outcome is **injected** from the Tribes log (ADR-002 §3).
 | Allegiance change when attacked | −5 |
 | … when a city is captured | −30 |
 | … when a unit is converted | −5 |
-| Minimum stars per Send Stars | 15 |
+| Send Stars amount bound (named "minimum" in Tribes; actually a maximum, see 04 §6.4) | 15 |
 
-Declaring war and allegiance thresholds: **[TBD §diplomacy]**.
+Declaring war and allegiance thresholds: section 04 §6.
