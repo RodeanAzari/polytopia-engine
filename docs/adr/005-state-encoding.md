@@ -1,6 +1,6 @@
 # ADR-005: Simulator state encoding, chance interface and move generation
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-06)
 - **Date:** 2026-11-06
 
 ## Context
