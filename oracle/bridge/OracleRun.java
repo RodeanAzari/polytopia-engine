@@ -27,17 +27,7 @@ public class OracleRun {
             System.exit(2);
         }
 
-        // Agent parameters: same values as the stock tribes tournament.json.
-        Run.MAX_LENGTH = 20;
-        Run.FORCE_TURN_END = false;
-        Run.MCTS_ROLLOUTS = false;
-        Run.POP_SIZE = 1;
-        Run.PRUNING = true;
-        Run.PROGBIAS = true;
-        Run.K_INIT_MULT = 0.5;
-        Run.T_MULT = 2.0;
-        Run.A_MULT = 1.5;
-        Run.B = 1.3;
+        setStockAgentParams();
 
         Types.TRIBE[] tribes = new Types.TRIBE[tribeNames.length];
         ArrayList<Integer> allIds = new ArrayList<>();
@@ -59,5 +49,19 @@ public class OracleRun {
         Game game = new Game();
         game.init(players, levelSeed, tribes, gameSeed, mode);
         game.run(null, null);
+    }
+
+    /** Agent parameters: same values as the stock tribes tournament.json. */
+    static void setStockAgentParams() {
+        Run.MAX_LENGTH = 20;
+        Run.FORCE_TURN_END = false;
+        Run.MCTS_ROLLOUTS = false;
+        Run.POP_SIZE = 1;
+        Run.PRUNING = true;
+        Run.PROGBIAS = true;
+        Run.K_INIT_MULT = 0.5;
+        Run.T_MULT = 2.0;
+        Run.A_MULT = 1.5;
+        Run.B = 1.3;
     }
 }

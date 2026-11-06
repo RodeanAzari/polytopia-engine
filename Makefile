@@ -4,7 +4,7 @@ TRIBES_COMMIT := 270e7e564630e5ef3dcc04c96dd66f58ef7273f3
 GEN := $(shell command -v ninja >/dev/null 2>&1 && echo "-G Ninja")
 JOBS ?= $(shell nproc)
 
-.PHONY: setup oracle-smoke build test tidy format clean difftest bench tournament selfplay train plots ci
+.PHONY: setup oracle-smoke oracle-equiv oracle-log build test tidy format clean difftest bench tournament selfplay train plots ci
 
 # Tribes is unlicensed: cloned locally at a pinned commit, never committed (ADR-002).
 setup:
@@ -21,6 +21,23 @@ oracle-smoke:
 	$(ORACLE_RUN) 1590191438878 1 2 Capitals "Random,Rule Based" "Xin Xi,Imperius" > ../../build/smoke1.txt
 	$(ORACLE_RUN) 1590191438878 1 2 Capitals "Random,Rule Based" "Xin Xi,Imperius" > ../../build/smoke2.txt
 	cmp build/smoke1.txt build/smoke2.txt && echo "oracle-smoke: reproducible"
+
+# Our logging driver must reproduce stock Game.run (same final tick, results, scores) on N seeds per config.
+N ?= 25
+oracle-equiv:
+	python3 oracle/scripts/check_loop_equivalence.py $(N)
+
+# One full difftest log (level, seats, RNG draws, legal actions, actions, states) -> build/oracle-logs/.
+# Defaults: LEVEL=1001 SEED=1 MODE=Capitals PLAYERS="Random,Rule Based" TRIBES="Xin Xi,Imperius"
+LEVEL ?= 1001
+SEED ?= 1
+MODE ?= Capitals
+PLAYERS ?= Random,Rule Based
+TRIBES ?= Xin Xi,Imperius
+oracle-log:
+	mkdir -p build/oracle-logs
+	cd oracle/tribes && java -cp ../../build/tribes:lib/json.jar OracleLog $(LEVEL) $(SEED) $(SEED) $(MODE) \
+	  "$(PLAYERS)" "$(TRIBES)" > ../../build/oracle-logs/game-$(LEVEL)-$(SEED)-$(MODE).log
 
 build:
 	cmake -S . -B build/release $(GEN) -DCMAKE_BUILD_TYPE=Release

@@ -22,13 +22,16 @@
   agent observation, game end + ranking. All earlier `[TBD]`s resolved; tick count and send-stars bound probed on the oracle.
 - 2026-11-06: Section 5 (`docs/rules/05-map-generation.md`): map load (bit-exact) + generator (distribution).
   Rule-facts sheet complete. Fixed 03b §11: Luxidoor's capital starts at level 3 with walls.
+- 2026-11-06: [ADR-005](docs/adr/005-state-encoding.md) accepted (state value type, `Chance`, move-gen replication).
+- 2026-11-06: Oracle logging bridge (full obs): `make oracle-log`, `make oracle-equiv` (100 games = stock Game.run, 0 failures).
 - 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
 
 ### Next
 1. Design the state value type and the outcome-injection interface (ADR: state encoding). Include the
    move-generation decision: replicate Tribes' order-dependent Dijkstra + Java-like heap (§02.3).
-2. Oracle bridge: log the generated level, Tribes actions, per-step state and random outcomes. Two builds: stock (full obs) and
-   `PLAY_WITH_FULL_OBS=false` (partial obs) — [ADR-004](docs/adr/004-difftest-observability.md).
+2. Oracle bridge, remaining: partial-obs build (`PLAY_WITH_FULL_OBS=false`, [ADR-004](docs/adr/004-difftest-observability.md));
+   canonical action format (action-encoding ADR; logs carry Tribes' action strings for now); log compression.
+3. C++: `GameState` per ADR-005, level loader (05 §1), log reader; first difftest = initial state after map load.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
@@ -40,4 +43,5 @@
 - This Tribes commit includes **diplomacy** (wars, sending stars), a post-paper extension → include in the rule-facts sheet.
 
 ### Open items
+- ruff isn't installed locally and CI has no Python step yet: `oracle/scripts/*.py` is unlinted. Add with `make setup` venv.
 - Permission email to the Tribes authors drafted (`docs/tribes-permission-request.md`); not yet sent.
