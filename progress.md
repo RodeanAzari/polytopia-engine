@@ -20,13 +20,14 @@
   difftest both obs modes ([ADR-004](docs/adr/004-difftest-observability.md)).
 - 2026-11-05: Section 4 (`docs/rules/04-turns-diplomacy-end.md`): turn flow, action generation order, diplomacy,
   agent observation, game end + ranking. All earlier `[TBD]`s resolved; tick count and send-stars bound probed on the oracle.
+- 2026-11-06: Section 5 (`docs/rules/05-map-generation.md`): map load (bit-exact) + generator (distribution).
+  Rule-facts sheet complete. Fixed 03b §11: Luxidoor's capital starts at level 3 with walls.
 - 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
 
 ### Next
-1. Rule-facts sheet, last section: 05 map generation (LevelGenerator).
-2. Design the state value type and the outcome-injection interface (ADR: state encoding). Include the
+1. Design the state value type and the outcome-injection interface (ADR: state encoding). Include the
    move-generation decision: replicate Tribes' order-dependent Dijkstra + Java-like heap (§02.3).
-3. Oracle bridge: log Tribes actions, per-step state and random outcomes. Two builds: stock (full obs) and
+2. Oracle bridge: log the generated level, Tribes actions, per-step state and random outcomes. Two builds: stock (full obs) and
    `PLAY_WITH_FULL_OBS=false` (partial obs) — [ADR-004](docs/adr/004-difftest-observability.md).
 
 ### Known oracle caveats
@@ -34,6 +35,8 @@
   `new Random()`. Doesn't affect difftests (we replay logged actions), but tournament runs vs. them are
   only statistically reproducible.
 - Ranking tie-break in `TribeResult` is unseeded (only matters on exact ties).
+- Tribe id (= turn order) follows the capitals' row-major order, not the requested order; seats bind by tribe
+  type. Log the id→type map per game (05 §1.2).
 - This Tribes commit includes **diplomacy** (wars, sending stars), a post-paper extension → include in the rule-facts sheet.
 
 ### Open items

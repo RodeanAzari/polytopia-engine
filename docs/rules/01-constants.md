@@ -38,7 +38,7 @@ Items marked **[Tribes quirk]** differ from the commercial game; we match Tribes
 
 - The starting tech is granted **alone, without its parent** (Hoodrick has Archery but not Hunting; Vengir has
   Smithery but not Mining). The parent can be researched later as normal.
-- Starting score = starting tech's tier × 100 (0 for Luxidoor). Luxidoor has no special start (§03b.11).
+- Starting score = starting tech's tier × 100 (0 for Luxidoor). Luxidoor's capital starts at level 3 with walls (05 §1.3).
 
 ## Units
 

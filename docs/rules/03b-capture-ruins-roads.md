@@ -181,7 +181,8 @@ reveal-triggered recomputation is for the exploring tribe only.
 
 ## 11. Luxidoor
 
-No special start: no starting tech (score 0), Warrior, standard stars. No other tribe-specific code exists.
+No starting tech (score 0), Warrior, standard stars. **Corrected in 05 §1.3:** the capital starts at level 3
+with walls and population 0 (4 stars/turn); this is in map load, which the earlier search missed.
 
 ## Resolved
 - Section 01: Luxidoor's start (§11); `NUM_STEPS` use (explorer, §6).
