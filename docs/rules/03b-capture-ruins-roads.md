@@ -14,7 +14,7 @@ starts all-visible. Consequences in the oracle as built:
 - "visible" checks (roads, convert/attack target visibility) always pass.
 
 The rules below give the partial-obs behaviour too, so the simulator can run either mode.
-Which mode the difftest uses is an open decision (progress.md).
+The difftest checks both modes (ADR-004).
 
 ## 1. Clear view (vision update; used by moves, explorer, new cities)
 
