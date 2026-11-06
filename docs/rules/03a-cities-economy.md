@@ -2,7 +2,7 @@
 
 Source: Tribes at commit `270e7e5`, read for facts only (ADR-002). Wording, structure and naming here are ours.
 Conventions as in sections 01–02 (**[Tribes quirk]**, **[Sim note]**, neighbourhood order x-major then y).
-"City tiles" = tiles whose owning-city id is that city (its borders). Constants are in section 01.
+"City tiles" = tiles owned by that city **within radius 1 (level < 4) or 2 (level ≥ 4)** — not the full borders (03b §2). Constants are in section 01.
 Still open, in 03b: capture, ruins (Examine), explorer walk, border growth, road building, unit-to-city
 assignment when a city is full, port build/destroy board effects, Luxidoor's start.
 
@@ -116,8 +116,8 @@ The tech gate (section 01) applies at build time, not at unlock time.
 ## 6. Trade network (roads, ports, connection to capital)
 
 The board keeps a "network" flag per tile (set by roads, city centres, ports; 03b). Recomputation happens on
-network changes and when fog clearing reveals a road or water tile; it is done **only for the tribe whose turn
-it is** (other tribes are skipped). A tribe without its capital loses all connections.
+network changes and when fog clearing reveals a road or water tile; in the real game it is done for **every
+tribe** (only Tribes' search copies skip non-active tribes; corrected in 03b §10). A tribe without its capital loses all connections.
 
 For tribe P owning its capital:
 1. **Connected tiles**: own city centres and own ports (inside own borders) with the network flag; plus road

@@ -38,7 +38,7 @@ Items marked **[Tribes quirk]** differ from the commercial game; we match Tribes
 
 - The starting tech is granted **alone, without its parent** (Hoodrick has Archery but not Hunting; Vengir has
   Smithery but not Mining). The parent can be researched later as normal.
-- Starting score = starting tech's tier × 100 (0 for Luxidoor). Luxidoor's special start (if any): **[TBD §03b]**.
+- Starting score = starting tech's tier × 100 (0 for Luxidoor). Luxidoor has no special start (§03b.11).
 
 ## Units
 
@@ -87,7 +87,7 @@ Fresh → moved / attacked / moved-and-attacked / pushed → finished. Transitio
 | Attack scaling constant | 4.5 |
 | Defence bonus multiplier (terrain / fortify) | 1.5 |
 | Defence multiplier inside city walls | 4.0 |
-| Explorer steps (`NUM_STEPS`, ruin reward) | 15 — use: **[TBD §03b]** |
+| Explorer steps (`NUM_STEPS`, ruin reward) | 15 — explorer walk steps (§03b.6) |
 
 Damage formula: §02.2.
 

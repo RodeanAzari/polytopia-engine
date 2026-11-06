@@ -15,14 +15,17 @@
 - 2026-11-05: Rule-facts sheet section 1 (`docs/rules/01-constants.md`): all static tables + 3 Tribes quirks.
 - 2026-11-05: Section 2 (`docs/rules/02-combat-movement.md`): turn status, attack, movement, pushes.
 - 2026-11-05: Section 3a (`docs/rules/03a-cities-economy.md`): city growth, buildings, city actions, monuments, trade network.
+- 2026-11-05: Section 3b (`docs/rules/03b-capture-ruins-roads.md`): capture, ruins, explorer, borders, roads,
+  other unit actions. Two 03a errors fixed (city-tile radius, network scope).
 - 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
 
 ### Next
-1. Rule-facts sheet, remaining sections: 03b capture/ruins/explorer/borders/roads, 04 turn flow,
-   fog, diplomacy, win conditions, 05 map generation. Resolve the `[TBD]`s in section 01.
-2. Design the state value type and the outcome-injection interface (ADR: state encoding). Include the
+1. **Decide the difftest observability mode** (Tribes builds with `PLAY_WITH_FULL_OBS = true`: no fog; 03b §0).
+2. Rule-facts sheet, remaining sections: 04 turn flow, fog, diplomacy, win conditions; 05 map generation.
+   Resolve the remaining `[TBD]`s.
+3. Design the state value type and the outcome-injection interface (ADR: state encoding). Include the
    move-generation decision: replicate Tribes' order-dependent Dijkstra + Java-like heap (§02.3).
-3. Oracle bridge: log Tribes actions, per-step state and random outcomes.
+4. Oracle bridge: log Tribes actions, per-step state and random outcomes.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded

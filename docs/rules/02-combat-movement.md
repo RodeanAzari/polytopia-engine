@@ -118,7 +118,7 @@ step rules below (Tribes checks this with a separate A* search; see the pathfind
 
 ### Executing a move
 1. The unit is placed on D; its tribe clears fog around D with radius 1, or 2 if D is a mountain or the unit is
-   a Battleship (fog clearing and tribe meeting: **[TBD §fog]**; it may draw from the RNG).
+   a Battleship (clear view and tribe meeting: §03b.1; RNG only under partial obs).
 2. Naval unit landing on a non-water tile → **disembark**: replaced by a new land unit of its carried type with
    the same HP, max HP, kills and veteran flag (new unit starts Finished). Ground unit ending on a **port** →
    **embark**: replaced by a new Boat carrying it, same HP/max HP/kills/veteran (starts Finished).
@@ -140,7 +140,7 @@ state/action ADR.
 
 ## 4. Pushes and advance targets
 
-**Push** (used when a city levels up or a ruin spawns a unit onto an occupied city tile; callers: **[TBD §cities]**):
+**Push** (used when a city levels up or a ruin spawns a unit onto an occupied city tile; callers: level-up Super unit, ruin Super unit — the examining unit itself, §03b.5):
 try target tiles in this order of (dx, dy): (0,+1), (−1,0), (0,−1), (+1,0), (−1,+1), (−1,−1), (+1,−1), (+1,+1),
 skipping off-board tiles, until one succeeds. Whatever happens, the unit's status becomes **Pushed**.
 If no target succeeds, the unit is **killed** (removed, score points lost).
@@ -156,5 +156,5 @@ If no target succeeds, the unit is **killed** (removed, score points lost).
    Shallow/deep water traversal tech is **not** checked here.
 
 ## Resolved from section 01
-- `NUM_STEPS` = 15 is the **explorer** step count (ruin reward), not a push parameter → **[TBD §cities]**.
+- `NUM_STEPS` = 15 is the **explorer** step count (ruin reward), not a push parameter → §03b.6.
 - Damage formula, ranged retaliation, fortify eligibility, turn-status transitions: above.
