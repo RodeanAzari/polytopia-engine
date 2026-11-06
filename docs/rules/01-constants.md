@@ -60,12 +60,12 @@ Stats: attack, defence, movement, max HP, range, cost (stars), score points, req
 | Super unit (giant) | 5 | 4 | 1 | 40 | 1 | 10 | 50 | — |
 
 - Naval units have no HP of their own; they remember the land unit they carry and take its HP.
-  Exact embark/disembark HP handling: **[TBD §movement]**.
+  Exact embark/disembark HP handling: Same HP, max HP, kills and veteran flag both ways (§02.3).
 - Ship cost 5 and Battleship cost 15 are **upgrade** costs (Boat→Ship needs Sailing, Ship→Battleship needs Navigation).
   Super unit cost 10 is only used for disband refunds.
 - **Spawnable in a city:** every unit except Boat, Ship, Battleship, Super unit.
-- **Ranged** (for combat retaliation rules): Boat, Ship, Battleship, Archer, Catapult. **[TBD §combat]**
-- **Can fortify** (defence bonus eligibility): Warrior, Rider, Archer, Defender, Swordsman, Knight. **[TBD §combat]**
+- **Ranged** (for combat retaliation rules): Boat, Ship, Battleship, Archer, Catapult. Rules never read this flag (only a bundled AI does); retaliation is by range (§02.2).
+- **Can fortify** (defence bonus eligibility): Warrior, Rider, Archer, Defender, Swordsman, Knight. Only matters in an owned city without walls (§02.2).
 - Mind Bender heals others for 4 HP.
 
 ### Unit progression and healing
@@ -78,7 +78,7 @@ Stats: attack, defence, movement, max HP, range, cost (stars), score points, req
 | Recover: extra HP inside own borders | +2 |
 
 ### Turn status of a unit
-Fresh → moved / attacked / moved-and-attacked / pushed → finished. Transition rules: **[TBD §actions]**.
+Fresh → moved / attacked / moved-and-attacked / pushed → finished. Transition rules: §02.1.
 
 ## Combat constants
 
@@ -87,9 +87,9 @@ Fresh → moved / attacked / moved-and-attacked / pushed → finished. Transitio
 | Attack scaling constant | 4.5 |
 | Defence bonus multiplier (terrain / fortify) | 1.5 |
 | Defence multiplier inside city walls | 4.0 |
-| Push-back search steps (`NUM_STEPS`) | 15 — meaning **[TBD §combat]** |
+| Explorer steps (`NUM_STEPS`, ruin reward) | 15 — use: **[TBD §cities]** |
 
-Damage formula: **[TBD §combat]**.
+Damage formula: §02.2.
 
 ## Technology
 
