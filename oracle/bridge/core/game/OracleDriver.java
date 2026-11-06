@@ -120,9 +120,11 @@ public final class OracleDriver {
     /**
      * Runs one game. agentsByRequest[i] plays tribes[i] (seats bind by tribe type, rule facts 05 §1.2).
      * @param dumpStates false = skip STATE/ACTIONS records (faster; for the loop-equivalence check).
+     * @param initOnly   stop after the initial state (map-load difftests).
      */
     public static void run(long levelSeed, long gameSeed, Types.GAME_MODE mode, Types.TRIBE[] tribes,
-                           Agent[] agentsByRequest, boolean dumpStates, PrintStream out) throws Exception {
+                           Agent[] agentsByRequest, boolean dumpStates, boolean initOnly, PrintStream out)
+            throws Exception {
         LoggingRandom rnd = new LoggingRandom(gameSeed, out);
         out.println("GAME " + levelSeed + " " + gameSeed + " " + mode + " " + (core.Constants.PLAY_WITH_FULL_OBS ? 1 : 0));
 
@@ -149,7 +151,8 @@ public final class OracleDriver {
             players[id].setPlayerIDs(id, allIds);
             out.println("SEAT " + id + " " + tt[id].getType() + " " + req);
         }
-        if (dumpStates) dumpState(gs, out);
+        if (dumpStates || initOnly) dumpState(gs, out);
+        if (initOnly) return;
 
         // Turn loop (rule facts 04 §1–§2; Game.tick/processTurn without GUI, stats or time limit).
         gameLoop:

@@ -14,8 +14,11 @@ if(POLY_SANITIZE)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
-add_library(poly_sim INTERFACE)
-target_include_directories(poly_sim INTERFACE sim/include)
+add_library(poly_sim STATIC sim/src/state.cpp sim/src/level.cpp sim/src/dump.cpp)
+target_include_directories(poly_sim PUBLIC sim/include)
+
+add_executable(oracle_diff tools/oracle_diff.cpp)
+target_link_libraries(oracle_diff PRIVATE poly_sim)
 
 include(FetchContent)
 FetchContent_Declare(googletest
@@ -25,7 +28,7 @@ FetchContent_Declare(googletest
 FetchContent_MakeAvailable(googletest)
 
 enable_testing()
-add_executable(sim_tests tests/sim/test_rng.cpp)
+add_executable(sim_tests tests/sim/test_rng.cpp tests/sim/test_inline_vector.cpp tests/sim/test_level.cpp)
 target_link_libraries(sim_tests PRIVATE poly_sim GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(sim_tests)

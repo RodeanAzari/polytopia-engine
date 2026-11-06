@@ -32,15 +32,17 @@ Facts this depends on (rule-facts sheet 01–05):
   self-play runs show whether a limit is ever hit. Capacities are revisited for Phase 6 (real-game maps up to 30×30).
 - **Tiles, structure of arrays** over `side × side` (row-major, x = row): terrain, resource, building (1 byte each),
   unit slot (0 = none), owning city slot (none = sentinel), trade-network flag, and a per-tribe visibility bitset.
-- **Actor pools:** units and cities live in fixed arrays of slots with a free list. Each actor stores its **Tribes
+- **Actor pools:** units and cities live in fixed arrays of slots; a new actor takes the first free slot
+  (simpler than a free list and equally deterministic; amended 2026-11-06 at implementation). Each actor stores its **Tribes
   actor id**, assigned by the same counter rule, so logged actions map to our actors without a translation table and
   states compare field by field. The board stores slot indices (fast); ids are for logs and difftests.
 - **Ordered lists** (tribe → cities, city → units, city → buildings, tribe → tribe-owned units) are small inline
   fixed-capacity vectors with Java `ArrayList` semantics: append at the end, order-preserving removal.
 - **Per tribe:** type, tech bitset, stars, score, capital slot, result, monument and diplomacy counters (01, 03a, 04).
   Diplomacy: an 8 × 8 allegiance matrix. Global: tick, active tribe, game mode, observability mode (ADR-004).
-- **Size estimate:** about 22 KB (512 units × ~20 B + 64 cities × ~100 B + 576 tiles × ~8 B + visibility),
-  unmeasured. Most of it is unit capacity that small games never use. `make bench` reports `sizeof(GameState)` and copies/s next to states/s.
+- **Size:** estimated ~22 KB; **measured 32.7 KB** at implementation (Unit 20 B, City 200 B, TribeState 680 B),
+  ~1.1 µs per copy (one-off microbenchmark, i9-11950H, WSL2, g++ 15 -O3). Most of it is unit and city capacity that
+  small games never use. `make bench` reports `sizeof(GameState)` and copies/s next to states/s.
   If copying turns out to dominate search, the first fallback is to shrink the capacities to the game's actual
   side (templated capacity). That decision will be made from measurements, not in advance.
 

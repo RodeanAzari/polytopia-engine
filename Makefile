@@ -4,7 +4,7 @@ TRIBES_COMMIT := 270e7e564630e5ef3dcc04c96dd66f58ef7273f3
 GEN := $(shell command -v ninja >/dev/null 2>&1 && echo "-G Ninja")
 JOBS ?= $(shell nproc)
 
-.PHONY: setup oracle-smoke oracle-equiv oracle-log build test tidy format clean difftest bench tournament selfplay train plots ci
+.PHONY: setup oracle-smoke oracle-equiv oracle-log difftest-init build test tidy format clean difftest bench tournament selfplay train plots ci
 
 # Tribes is unlicensed: cloned locally at a pinned commit, never committed (ADR-002).
 setup:
@@ -39,6 +39,11 @@ oracle-log:
 	cd oracle/tribes && java -cp ../../build/tribes:lib/json.jar OracleLog $(LEVEL) $(SEED) $(SEED) $(MODE) \
 	  "$(PLAYERS)" "$(TRIBES)" > ../../build/oracle-logs/game-$(LEVEL)-$(SEED)-$(MODE).log
 
+# Map-load difftest: N oracle initial states (2..8 players, all tribes) vs. our loader + dump (05 §1).
+difftest-init: build
+	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/init
+	build/release/oracle_diff build/oracle-logs/init/*.log
+
 build:
 	cmake -S . -B build/release $(GEN) -DCMAKE_BUILD_TYPE=Release
 	cmake --build build/release -j$(JOBS)
@@ -50,10 +55,10 @@ test: build
 	ctest --test-dir build/debug --output-on-failure
 
 tidy: build
-	clang-tidy -p build/release --quiet $(shell find sim tests -name '*.cpp')
+	clang-tidy -p build/release --quiet $(shell find sim tests tools -name '*.cpp')
 
 format:
-	clang-format -i $(shell find sim search selfplay tests -name '*.hpp' -o -name '*.cpp')
+	clang-format -i $(shell find sim search selfplay tests tools -name '*.hpp' -o -name '*.cpp')
 
 ci: test tidy
 

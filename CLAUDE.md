@@ -14,7 +14,7 @@ Full spec, prior art, phase checklists, out-of-scope list and portfolio delivera
 
 | Phase | Status | Key result |
 |---|---|---|
-| 1 — Simulator | IN PROGRESS | Facts-only (ADR-002); scaffold + RNG; rule-facts sheet 01–05 complete |
+| 1 — Simulator | IN PROGRESS | Rule-facts sheet 01–05; oracle bridge; map-load difftest 700/700 |
 | 2 — Search baselines | NOT STARTED | — |
 | 3 — Action-level MCTS + heuristic priors | NOT STARTED | — |
 | 4 — Learned policy/value network | NOT STARTED | — |

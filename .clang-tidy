@@ -2,6 +2,10 @@ Checks: >
   -*,bugprone-*,performance-*,modernize-*,readability-*,cppcoreguidelines-*,
   -modernize-use-trailing-return-type,-readability-magic-numbers,
   -cppcoreguidelines-avoid-magic-numbers,-readability-identifier-length,
-  -bugprone-easily-swappable-parameters
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-pro-bounds-constant-array-index
+# pro-bounds-constant-array-index: a grid simulator indexes std::array by runtime tile index everywhere;
+# .at() throws on the hot path and gsl::at is a new dependency. Bounds are checked by ASan/UBSan in
+# Debug and by InlineVector's checks in every build. (Disabled 2026-11-06, see notebook.)
 WarningsAsErrors: '*'
 HeaderFilterRegex: '(sim|search|selfplay)/.*'
