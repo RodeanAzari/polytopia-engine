@@ -14,7 +14,7 @@ if(POLY_SANITIZE)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
-add_library(poly_sim STATIC sim/src/state.cpp sim/src/level.cpp sim/src/dump.cpp)
+add_library(poly_sim STATIC sim/src/state.cpp sim/src/level.cpp sim/src/dump.cpp sim/src/rules.cpp sim/src/move.cpp sim/src/network.cpp)
 target_include_directories(poly_sim PUBLIC sim/include)
 
 add_executable(oracle_diff tools/oracle_diff.cpp)

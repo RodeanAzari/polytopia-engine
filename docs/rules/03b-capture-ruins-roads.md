@@ -79,7 +79,8 @@ Generated at most once per unit.
    matching-only, again with **P** as the tribe (C's owner is already P).
 6. Q's units of C move out ("move all"): while Q owns its capital and the capital has room, the **last** unit
    of C's list moves to the capital. Then, if any remain: Q's other cities (minus capital) are shuffled (game RNG)
-   and filled in that order while they have room. Any still left become Q's **tribe-owned** units (no city).
+   and filled in that order while they have room. Any still left become Q's **tribe-owned** units (no city),
+   appended in C's list order (front to back).
    No shuffle when the capital took them all.
 7. "Move one" (village step 5) for P into C.
 8. If Q now has no cities (native state only): Q **loses**: all of Q's units are removed from the board (city
@@ -122,6 +123,9 @@ A city's unit list silently **ignores** an add when full (level + 1 units). Case
      unit (no city), kills 0, not veteran. First, U itself (standing on X) is **pushed** (section 02 §4;
      killed with score loss if it can't be). Then the new unit is placed on X (new actor id). X's ruins cleared.
      New unit's status: as created (Finished per section 02).
+     [Tribes quirk, found by the replay difftest 2026-11-06] The water Battleship has **HP −1 / max HP −1**: naval
+     units' constructors take max HP −1 (they normally copy HP from the land unit they replace), and this path
+     only sets the carried type. Combat then reads HP ratio 1, and any hit kills it (−1 ≤ damage).
    - **Research**: one random researchable tech (uniform over techs in enum order that are researchable now)
      is marked researched. No stars, **no score** and no Tower of Wisdom unlock [Tribes quirk: those live in the
      Research action only]; the "all researched" flag is still re-checked if it is a leaf tech (section 01).

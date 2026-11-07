@@ -94,14 +94,14 @@ struct TribeState {
 
 struct GameState {
     // --- setup ---
-    std::int8_t side = 0;
-    std::int8_t num_tribes = 0;
+    std::int16_t side = 0;
+    std::int16_t num_tribes = 0;
     GameMode mode = GameMode::Capitals;
     ObsMode obs = ObsMode::Full;
 
     // --- turn bookkeeping ---
     std::int32_t tick = 0;
-    std::int8_t active_tribe = -1;
+    std::int16_t active_tribe = -1;
     bool game_over = false;
     bool turn_must_end = false;
     bool leveling_up = false;
@@ -120,7 +120,7 @@ struct GameState {
     std::array<Unit, kMaxUnits> units{};
     std::array<City, kMaxCities> cities{};
     std::array<TribeState, kMaxTribes> tribes{};
-    std::array<std::array<std::int8_t, kMaxTribes>, kMaxTribes> allegiance{};
+    std::array<std::array<std::int16_t, kMaxTribes>, kMaxTribes> allegiance{};
 
     [[nodiscard]] int index(int x, int y) const { return (x * side) + y; }
     [[nodiscard]] bool on_board(int x, int y) const {
@@ -131,6 +131,22 @@ struct GameState {
 static_assert(std::is_trivially_copyable_v<GameState>, "ADR-005: GameState must copy with memcpy");
 
 // ---- rule helpers used by map load and (later) actions ----
+
+[[nodiscard]] inline MonumentStatus& monument(TribeState& t, Building b) {
+    return t.monuments[static_cast<std::size_t>(static_cast<int>(b) - kFirstMonument)];
+}
+
+// Monument becomes available if it is still unavailable (03a §5).
+inline void unlock(TribeState& t, Building b) {
+    MonumentStatus& m = monument(t, b);
+    if (m == MonumentStatus::Unavailable) {
+        m = MonumentStatus::Available;
+    }
+}
+
+// Add population v to city c, crediting tribe p (03a §1): floor at -level; p's score and c's
+// points-worth move with the clamped change. p is not always c's owner (03a §6).
+void add_population(GameState& s, City& c, int p, int v);
 
 // Allocates a city slot with the next actor id (counter incremented before use, 04 §1.1).
 Slot new_city(GameState& s);

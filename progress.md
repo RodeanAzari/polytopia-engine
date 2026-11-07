@@ -25,15 +25,19 @@
 - 2026-11-06: [ADR-005](docs/adr/005-state-encoding.md) accepted (state value type, `Chance`, move-gen replication).
 - 2026-11-06: Oracle logging bridge (full obs): `make oracle-log`, `make oracle-equiv` (100 games = stock Game.run, 0 failures).
 - 2026-11-06: C++ `GameState`, map load, state dump: `make difftest-init N=700` → 700/700 initial states match (2–8 players).
+- 2026-11-06: C++ rules + replay difftest (full obs): `make difftest N=140` → 140/140 games replay to the end,
+  303,641 states + end tick + results/scores match. Every action type that occurs is implemented.
 - 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
 
 ### Next
-1. Design the state value type and the outcome-injection interface (ADR: state encoding). Include the
-   move-generation decision: replicate Tribes' order-dependent Dijkstra + Java-like heap (§02.3).
-2. Oracle bridge, remaining: partial-obs build (`PLAY_WITH_FULL_OBS=false`, [ADR-004](docs/adr/004-difftest-observability.md));
-   canonical action format (action-encoding ADR; logs carry Tribes' action strings for now); log compression.
-3. C++ replay: canonical actions + `Chance`/`ReplayChance`, then apply logged actions one at a time and diff every
-   STATE (start with end turn / turn start, then unit moves and city actions).
+1. Heal others + Convert (Mind Bender): never occur in 140 random/rule-based games (counted), so no oracle
+   coverage. Needs a targeted scenario (e.g. a bridge option that forces Philosophy + Mind Benders), then implement.
+2. C++ action generation, diffed against the logged legal sets (`ACTIONS`/`A` lines, not compared yet; order
+   matters for Tribes' agents, sorted in logs).
+3. Oracle bridge, remaining: partial-obs build (`PLAY_WITH_FULL_OBS=false`, [ADR-004](docs/adr/004-difftest-observability.md));
+   canonical action format (action-encoding ADR; logs carry Tribes' action strings for now); log compression
+   (~40 MB per game).
+4. CI runs no difftest (needs Java + Tribes); decide whether to add a short one (CLAUDE.md §3 asks for it).
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded

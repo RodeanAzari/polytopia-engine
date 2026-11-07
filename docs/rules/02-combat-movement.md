@@ -29,8 +29,11 @@ Statuses: Fresh, Moved, Attacked, Moved-and-attacked, Pushed, Finished.
 | Knight ("persist") | move from Fresh → Moved; attack from Fresh, Moved, Attacked | attack → Finished; a kill → Attacked |
 
 Rider transitions: Fresh –move→ Moved –attack→ Moved-and-attacked –move→ Finished;
-Fresh –attack→ Attacked –move→ Moved-and-attacked –move→ Finished.
-So a Rider may **attack then move twice** [Tribes quirk]. It cannot attack from Attacked or Moved-and-attacked.
+Fresh –attack→ Attacked –move→ **Finished** [Tribes quirk: `transitionToStatus` is a chain of `if`s without
+`else`, so Attacked → Moved-and-attacked is immediately followed by Moved-and-attacked → Finished; the
+intended Attacked –move→ Moved-and-attacked never sticks. Corrected 2026-11-06 after a replay difftest
+mismatch; this sheet previously said a Rider may attack then move twice]. So a Rider moves at most once after
+attacking. It cannot attack from Attacked or Moved-and-attacked.
 
 Knight persist: the attack itself first sets the Knight to Finished; scoring a kill then *forces* the status
 to Attacked, from which it may attack again (not move). Chains continue as long as each attack kills.

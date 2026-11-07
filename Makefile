@@ -44,6 +44,14 @@ difftest-init: build
 	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/init
 	build/release/oracle_diff build/oracle-logs/init/*.log
 
+# Replay difftest: N whole oracle games (2..8 players, both modes, Random / Rule Based), replayed
+# action by action; every state, the end tick and each tribe's result and score must match.
+# Logs are ~40 MB per game (build/oracle-logs/full, regenerated each run).
+difftest: build
+	rm -rf build/oracle-logs/full
+	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/full --full
+	build/release/oracle_diff build/oracle-logs/full/*.log
+
 build:
 	cmake -S . -B build/release $(GEN) -DCMAKE_BUILD_TYPE=Release
 	cmake --build build/release -j$(JOBS)
@@ -65,5 +73,5 @@ ci: test tidy
 clean:
 	rm -rf build
 
-difftest bench tournament selfplay train plots:
+bench tournament selfplay train plots:
 	@echo "make $@: not implemented yet" >&2; exit 1

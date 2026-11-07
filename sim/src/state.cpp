@@ -49,6 +49,15 @@ void view_tile(GameState& s, int p, int x, int y) {
 
 }  // namespace
 
+void add_population(GameState& s, City& c, int p, int v) {
+    if (c.population + v < -c.level) {
+        v = -c.level - c.population;
+    }
+    c.population = static_cast<std::int16_t>(c.population + v);
+    s.tribes[static_cast<std::size_t>(p)].score += kPopulationPoints * v;
+    c.points_worth += kPopulationPoints * v;
+}
+
 Slot new_city(GameState& s) {
     for (std::size_t i = 0; i < s.cities.size(); ++i) {
         if (s.cities[i].id == 0) {

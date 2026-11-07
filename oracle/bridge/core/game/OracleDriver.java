@@ -10,6 +10,8 @@
 //   TURN <tick> <tribeId>                          before turn start
 //   ACTIONS <count>, then one "A <action>" line each (sorted)   legal actions when the agent is asked
 //   ACT <action>                                   the action executed next
+//     <action> is Tribes' toString, except RESOURCE_GATHERED gets " at <x> : <y>" appended (its
+//     toString omits the tile, so two gatherable tiles of one resource would be indistinguishable)
 //   STATE ... END                                  full native state (see dumpState)
 //   GAMEEND <tick>, then RESULT <tribeId> <result> <score> per tribe in id order
 package core.game;
@@ -26,6 +28,7 @@ import core.actors.units.Boat;
 import core.actors.units.Ship;
 import core.actors.units.Unit;
 import core.actions.Action;
+import core.actions.cityactions.ResourceGathering;
 import core.actions.tribeactions.EndTurn;
 import players.Agent;
 import utils.ElapsedCpuTimer;
@@ -195,11 +198,11 @@ public final class OracleDriver {
                 action = new EndTurn(gs.getActiveTribeID());
             }
             if (action != null && action.getActionType() == Types.ACTION.END_TURN) {
-                out.println("ACT " + action);
+                out.println("ACT " + describe(action));
                 break;
             }
             if (action != null) {
-                out.println("ACT " + action);
+                out.println("ACT " + describe(action));
                 gs.next(action);
                 gs.computePlayerActions(tribe);
                 if (dumpStates) dumpState(gs, out);
@@ -210,9 +213,16 @@ public final class OracleDriver {
         if (dumpStates) dumpState(gs, out);
     }
 
+    private static String describe(Action a) {
+        if (a instanceof ResourceGathering) {
+            return a + " at " + ((ResourceGathering) a).getTargetPos();
+        }
+        return String.valueOf(a);
+    }
+
     private static void dumpActions(GameState gs, PrintStream out) {
         List<String> acts = new ArrayList<>();
-        for (Action a : gs.getAllAvailableActions()) acts.add(String.valueOf(a));
+        for (Action a : gs.getAllAvailableActions()) acts.add(describe(a));
         java.util.Collections.sort(acts);
         out.println("ACTIONS " + acts.size());
         for (String a : acts) out.println("A " + a);

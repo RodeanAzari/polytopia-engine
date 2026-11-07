@@ -133,7 +133,7 @@ void add_tribes(GameState& s, const Grid& grid) {
     if (count < 2) {
         throw std::invalid_argument("level: needs at least 2 cities");
     }
-    s.num_tribes = static_cast<std::int8_t>(count);
+    s.num_tribes = static_cast<std::int16_t>(count);
 }
 
 // One capital, set up in the order of 05 §1.3.
@@ -184,7 +184,7 @@ GameState load_level(const std::vector<std::string>& lines, GameMode mode, ObsMo
     const auto n = static_cast<int>(grid.size());
 
     GameState s;
-    s.side = static_cast<std::int8_t>(n);
+    s.side = static_cast<std::int16_t>(n);
     s.mode = mode;
     s.obs = obs;
     s.unit_at.fill(kNoSlot);
