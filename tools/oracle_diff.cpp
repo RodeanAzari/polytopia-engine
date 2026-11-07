@@ -1,6 +1,7 @@
 // Differential test against oracle logs (oracle/bridge): loads the logged level into our simulator,
 // then replays the log event by event (turn start, each action, turn end) and compares our state
-// dump with the oracle's after every event. Map-load logs (--init-only) hold only the first state.
+// dump with the oracle's after every event, and our legal-action set with each logged one (as
+// multisets: the log sorts them). Map-load logs (--init-only) hold only the first state.
 //
 // A log stops early, without failing, at the first action type the simulator does not implement
 // yet; the summary counts those stops by type so the remaining work is visible.
@@ -8,14 +9,17 @@
 // Usage: oracle_diff <log>...   Exit code 0 iff no log mismatched or errored.
 
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "poly/dump.hpp"
@@ -261,9 +265,30 @@ class ReplayChance final : public poly::Chance {
     std::size_t pos_ = 0;
 };
 
+// Readable form of an action for mismatch reports (field dump, not Tribes' toString).
+std::string show(const poly::Action& a) {
+    static constexpr std::array<std::string_view, 21> kName = {
+        "END_TURN",          "RESEARCH_TECH", "DECLARE_WAR", "SEND_STARS",   "BUILD_ROAD",
+        "RESOURCE_GATHERED", "LEVEL_UP",      "SPAWN",       "CLEAR_FOREST", "GROW_FOREST",
+        "BURN_FOREST",       "BUILD",         "DESTROY",     "RECOVER",      "MOVE",
+        "EXAMINE",           "CAPTURE",       "ATTACK",      "DISBAND",      "UPGRADE",
+        "MAKE_VETERAN"};
+    std::ostringstream os;
+    os << kName.at(static_cast<std::size_t>(a.type)) << " actor " << a.actor << " target "
+       << a.target << " at " << int{a.x} << ':' << int{a.y} << " param " << int{a.param}
+       << " amount " << a.amount;
+    return os.str();
+}
+
+bool action_less(const poly::Action& a, const poly::Action& b) {
+    return std::tie(a.type, a.actor, a.target, a.x, a.y, a.param, a.amount) <
+           std::tie(b.type, b.actor, b.target, b.x, b.y, b.param, b.amount);
+}
+
 struct Outcome {
     bool failed = false;
     int states = 0;          // states compared and equal
+    int action_sets = 0;     // legal-action sets compared and equal
     std::string stopped_at;  // first unimplemented action type, if any
     std::string detail;      // where and how the first mismatch happened
 };
@@ -306,12 +331,13 @@ class Replay {
             return act(line.substr(4));
         } else if (line.starts_with("STATE ")) {
             out_.failed = !state(line);
+        } else if (line.starts_with("ACTIONS ")) {
+            return actions(std::stoi(line.substr(8)));
         } else if (line.starts_with("GAMEEND ")) {
             game_end(std::stoi(line.substr(8)));
         } else if (line.starts_with("RESULT ")) {
             out_.failed = !result(line);
         }
-        // ACTIONS/A: not compared yet (needs C++ action generation).
         return !out_.failed;
     }
 
@@ -367,6 +393,48 @@ class Replay {
         pending_ = a->type == poly::ActionType::EndTurn ? Pending::TurnEnd : Pending::Action;
         event_ = "after " + text;
         return true;
+    }
+
+    // ACTIONS <n> then n "A <action>" lines: the oracle's legal set in the state just dumped.
+    // Compared as sorted multisets; a logged type we cannot parse stops the replay like ACT does.
+    bool actions(int n) {
+        std::vector<poly::Action> theirs;
+        std::string line;
+        for (int k = 0; k < n; ++k) {
+            if (!std::getline(*in_, line) || !line.starts_with("A ")) {
+                throw std::runtime_error("ACTIONS block cut short");
+            }
+            const auto a = parse_action(line.substr(2));
+            if (!a) {
+                out_.stopped_at = tokens(line.substr(2)).at(0);
+                return false;
+            }
+            theirs.push_back(*a);
+        }
+        poly::legal_actions(s_, legal_);
+        std::vector<poly::Action> ours(legal_.begin(), legal_.end());
+        std::ranges::sort(theirs, action_less);
+        std::ranges::sort(ours, action_less);
+        if (ours == theirs) {
+            ++out_.action_sets;
+            return true;
+        }
+        std::vector<poly::Action> missing;
+        std::vector<poly::Action> extra;
+        std::ranges::set_difference(theirs, ours, std::back_inserter(missing), action_less);
+        std::ranges::set_difference(ours, theirs, std::back_inserter(extra), action_less);
+        std::ostringstream os;
+        os << "  legal actions " << event_ << " (state " << out_.states << "): oracle "
+           << theirs.size() << ", ours " << ours.size() << '\n';
+        for (std::size_t k = 0; k < std::min<std::size_t>(missing.size(), 5); ++k) {
+            os << "  missing: " << show(missing[k]) << '\n';
+        }
+        for (std::size_t k = 0; k < std::min<std::size_t>(extra.size(), 5); ++k) {
+            os << "  extra:   " << show(extra[k]) << '\n';
+        }
+        out_.detail = os.str();
+        out_.failed = true;
+        return false;
     }
 
     // GAMEEND <tick>: the game ended by a capture or elimination (already over), or by the turn
@@ -459,6 +527,7 @@ class Replay {
     poly::ObsMode obs_ = poly::ObsMode::Full;
     std::vector<std::string> level_;
     poly::GameState s_{};
+    poly::ActionList legal_;
     enum class Pending : std::uint8_t { Load, TurnStart, Action, TurnEnd, None };
     Pending pending_ = Pending::Load;
     poly::Action action_;
@@ -484,6 +553,7 @@ int main(int argc, char** argv) {
     int failures = 0;
     int complete = 0;
     long long states = 0;
+    long long action_sets = 0;
     std::map<std::string, int> stops;
     for (const std::string& path : paths) {
         try {
@@ -493,6 +563,7 @@ int main(int argc, char** argv) {
             }
             const Outcome r = Replay(in).run();
             states += r.states;
+            action_sets += r.action_sets;
             if (r.failed) {
                 ++failures;
                 std::cerr << "MISMATCH " << path << '\n' << r.detail;
@@ -507,7 +578,8 @@ int main(int argc, char** argv) {
         }
     }
     std::cout << paths.size() << " logs: " << complete << " replayed to the end, " << failures
-              << " failures, " << states << " states matched\n";
+              << " failures, " << states << " states and " << action_sets
+              << " legal-action sets matched\n";
     for (const auto& [type, n] : stops) {
         std::cout << "  stopped at unimplemented " << type << ": " << n << '\n';
     }

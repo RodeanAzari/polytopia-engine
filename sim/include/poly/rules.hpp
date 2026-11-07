@@ -5,6 +5,7 @@
 
 #include "poly/action.hpp"
 #include "poly/chance.hpp"
+#include "poly/inline_vector.hpp"
 #include "poly/state.hpp"
 
 namespace poly {
@@ -30,6 +31,15 @@ bool update_game_over(GameState& s);
 // Executes a non-End-turn action of the active tribe, then refreshes the action-derived flags.
 // Every random outcome comes from `chance`.
 void apply_action(GameState& s, const Action& a, Chance& chance);
+
+// The active tribe's legal actions (04 §5), in Tribes' generation order: cities (city list order),
+// then units (city units, then tribe-owned units), then tribe actions. A city that can level up
+// makes its level-up variants the only actions. Empty once the game is over.
+// [Tribes note] Tribes' flattened list (getAllAvailableActions) puts tribe actions first and walks
+// cities and units in HashMap key order; this order is ours, not that one.
+inline constexpr int kMaxActions = 4096;  // most seen in 140 oracle games: 829
+using ActionList = InlineVector<Action, kMaxActions>;
+void legal_actions(const GameState& s, ActionList& out);
 
 // Slot of the city / unit with the given Tribes actor id; aborts if there is none.
 Slot city_by_id(const GameState& s, std::int32_t id);

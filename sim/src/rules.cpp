@@ -4,6 +4,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdlib>
+#include <optional>
 #include <span>
 #include <utility>
 
@@ -20,6 +21,7 @@ constexpr int kTempleTurns = 3;
 constexpr int kTempleMaxLevel = 5;
 
 TribeState& tribe(GameState& s, int p) { return s.tribes[static_cast<std::size_t>(p)]; }
+const TribeState& tribe(const GameState& s, int p) { return s.tribes[static_cast<std::size_t>(p)]; }
 
 // Adds stars; Emperor's Tomb unlocks when the total reaches the threshold (03a §5).
 void add_stars(TribeState& t, int n) {
@@ -70,9 +72,11 @@ bool is_leaf(Tech tech) {
                                 [&](const std::optional<Tech>& p) { return p == tech; });
 }
 
-template <typename F>
-void for_each_unit_of(GameState& s, int p, const F& f) {
-    TribeState& t = tribe(s, p);
+// P's units in Tribes' list order: city units (city list order), then tribe-owned units. Units in
+// no list (03b §4) are skipped.
+template <typename S, typename F>
+void for_each_unit_of(S& s, int p, const F& f) {
+    auto& t = tribe(s, p);
     for (Slot c : t.cities) {
         for (Slot u : s.cities[c].units) {
             f(u);
@@ -318,11 +322,15 @@ int research_cost(const TribeState& t, Tech tech) {
     return t.has_tech(Tech::Philosophy) ? static_cast<int>(cost * 0.2) : cost;
 }
 
+bool research_legal(const TribeState& t, Tech tech) {
+    return researchable(t, tech) && t.stars >= research_cost(t, tech);
+}
+
 void research(GameState& s, int p, Tech tech) {
     TribeState& t = tribe(s, p);
     const auto ti = static_cast<std::size_t>(tech);
     const int cost = research_cost(t, tech);
-    check(researchable(t, tech) && t.stars >= cost, "research: illegal");
+    check(research_legal(t, tech), "research: illegal");
     t.stars -= cost;
     mark_researched(t, tech);
     t.score += kTechTier[ti] * 100;
@@ -331,22 +339,34 @@ void research(GameState& s, int p, Tech tech) {
     }
 }
 
+// 04 §6.3: no check that q is alive or met.
+bool declare_war_legal(const GameState& s, int p, int q) {
+    return q != p && q >= 0 && q < s.num_tribes &&
+           s.allegiance[static_cast<std::size_t>(p)][static_cast<std::size_t>(q)] >
+               kWarAllegiance &&
+           !tribe(s, p).declared_war_this_turn;
+}
+
 void declare_war(GameState& s, int p, int q) {
     TribeState& t = tribe(s, p);
     const int a = s.allegiance[static_cast<std::size_t>(p)][static_cast<std::size_t>(q)];
-    check(q != p && q < s.num_tribes && a > kWarAllegiance && !t.declared_war_this_turn,
-          "declare war: illegal");
+    check(declare_war_legal(s, p, q), "declare war: illegal");
     t.declared_war_this_turn = true;
     ++t.wars_declared;
     update_allegiance(s, kWarAllegiance - a, p, q);
     consequences(s, kWarAllegiance, p, q);
 }
 
+// 04 §6.4: the 30-per-turn cap is checked before sending, not against the total.
+bool send_stars_legal(const GameState& s, int p, int q, int n) {
+    const TribeState& t = tribe(s, p);
+    return q != p && q >= 0 && q < s.num_tribes && n >= 1 && n < kSendStarsBound && n < t.stars &&
+           t.stars_sent_this_turn < kSendStarsTurnCap;
+}
+
 void send_stars(GameState& s, int p, int q, int n) {
     TribeState& t = tribe(s, p);
-    check(q != p && q < s.num_tribes && n >= 1 && n < kSendStarsBound && n < t.stars &&
-              t.stars_sent_this_turn < kSendStarsTurnCap,
-          "send stars: illegal");
+    check(send_stars_legal(s, p, q, n), "send stars: illegal");
     t.stars -= n;
     add_stars(tribe(s, q), n);
     t.stars_sent_this_turn += n;
@@ -357,34 +377,51 @@ void send_stars(GameState& s, int p, int q, int n) {
 }
 
 // 03b §8.
-void build_road(GameState& s, int p, int x, int y) {
-    TribeState& t = tribe(s, p);
-    check(s.on_board(x, y), "build road: off the board");
+bool road_legal(const GameState& s, int p, int x, int y) {
+    if (!s.on_board(x, y)) {
+        return false;
+    }
+    const TribeState& t = tribe(s, p);
     const auto i = static_cast<std::size_t>(s.index(x, y));
     const Terrain ter = s.terrain[i];
     const Slot owner = s.city_owner[i];
     const Slot u = s.unit_at[i];
-    check(t.has_tech(Tech::Roads) && t.stars >= kRoadCost && t.visible.test(i) &&
-              (ter == Terrain::Plain || ter == Terrain::Forest || ter == Terrain::Village) &&
-              (owner == kNoSlot || s.cities[owner].tribe == p) && !s.network.test(i) &&
-              (u == kNoSlot || s.units[u].tribe == p),
-          "build road: illegal");
+    return t.has_tech(Tech::Roads) && t.stars >= kRoadCost && t.visible.test(i) &&
+           (ter == Terrain::Plain || ter == Terrain::Forest || ter == Terrain::Village) &&
+           (owner == kNoSlot || s.cities[owner].tribe == p) && !s.network.test(i) &&
+           (u == kNoSlot || s.units[u].tribe == p);
+}
+
+void build_road(GameState& s, int p, int x, int y) {
+    TribeState& t = tribe(s, p);
+    check(road_legal(s, p, x, y), "build road: illegal");
     t.stars -= kRoadCost;
     set_network(s, x, y, true);
 }
 
 // ---- city actions ----
 
+int gather_cost(Resource r) { return r == Resource::Whales ? 0 : kGatherCost; }
+
+// 03a §4: gathering the resource on (x, y), a tile of city c.
+bool gather_legal(const GameState& s, Slot c, int x, int y) {
+    if (!is_city_tile(s, c, x, y)) {
+        return false;
+    }
+    const TribeState& t = tribe(s, s.cities[c].tribe);
+    const Resource r = s.resource[static_cast<std::size_t>(s.index(x, y))];
+    constexpr std::array<Tech, 4> kTech = {Tech::Fishing, Tech::Organization, Tech::Hunting,
+                                           Tech::Whaling};
+    return r <= Resource::Whales && t.has_tech(kTech[static_cast<std::size_t>(r)]) &&
+           t.stars >= gather_cost(r);
+}
+
 void gather(GameState& s, Slot c, int x, int y, Resource r) {
     City& city = s.cities[c];
     TribeState& t = tribe(s, city.tribe);
     const auto i = static_cast<std::size_t>(s.index(x, y));
-    const int cost = r == Resource::Whales ? 0 : kGatherCost;
-    constexpr std::array<Tech, 4> kTech = {Tech::Fishing, Tech::Organization, Tech::Hunting,
-                                           Tech::Whaling};
-    check(is_city_tile(s, c, x, y) && s.resource[i] == r && r <= Resource::Whales &&
-              t.has_tech(kTech[static_cast<std::size_t>(r)]) && t.stars >= cost,
-          "gather: illegal");
+    const int cost = gather_cost(r);
+    check(s.resource[i] == r && gather_legal(s, c, x, y), "gather: illegal");
     s.resource[i] = Resource::None;
     t.stars -= cost;
     if (r == Resource::Whales) {
@@ -394,12 +431,16 @@ void gather(GameState& s, Slot c, int x, int y, Resource r) {
     }
 }
 
+bool can_level_up(const City& c) { return c.population >= c.population_need; }
+
+// 03a §2: the reward pair offered for the city's current level (0: level 1, ..., 3: level >= 4).
+int level_up_pair(const City& c) { return std::min<int>(c.level, 4) - 1; }
+
 void level_up(GameState& s, Slot c, LevelUpBonus b, Chance& chance) {
     City& city = s.cities[c];
     TribeState& t = tribe(s, city.tribe);
-    const int pair = std::min<int>(city.level, 4) - 1;  // 0: levels 1, 1: 2, 2: 3, 3: >= 4
-    check(city.population >= city.population_need && static_cast<int>(b) / 2 == pair,
-          "level up: illegal");
+    const int pair = level_up_pair(city);
+    check(can_level_up(city) && static_cast<int>(b) / 2 == pair, "level up: illegal");
     if (pair == 3) {
         unlock(t, Building::ParkOfFortune);
     }
@@ -444,44 +485,62 @@ void level_up(GameState& s, Slot c, LevelUpBonus b, Chance& chance) {
     }
 }
 
+// 03a §4: naval units and the Super unit are not spawnable.
+bool spawn_legal(const GameState& s, Slot c, UnitType type) {
+    const City& city = s.cities[c];
+    const TribeState& t = tribe(s, city.tribe);
+    const auto ui = static_cast<std::size_t>(type);
+    const auto tile = static_cast<std::size_t>(s.index(city.x, city.y));
+    const auto tech = kUnitTech[ui];
+    return type <= UnitType::MindBender && t.stars >= kUnitCost[ui] &&
+           static_cast<int>(city.units.size()) < city.level + 1 && s.unit_at[tile] == kNoSlot &&
+           (!tech || t.has_tech(*tech));
+}
+
 void spawn(GameState& s, Slot c, UnitType type) {
     City& city = s.cities[c];
     TribeState& t = tribe(s, city.tribe);
     const auto ui = static_cast<std::size_t>(type);
-    const auto tile = static_cast<std::size_t>(s.index(city.x, city.y));
-    const auto tech = kUnitTech[ui];
-    check(type <= UnitType::MindBender && t.stars >= kUnitCost[ui] &&
-              static_cast<int>(city.units.size()) < city.level + 1 && s.unit_at[tile] == kNoSlot &&
-              (!tech || t.has_tech(*tech)),
-          "spawn: illegal");
+    check(spawn_legal(s, c, type), "spawn: illegal");
     create_unit(s, city.tribe, c, type, city.x, city.y, UnitType::Warrior);
     t.stars -= kUnitCost[ui];
     t.score += kUnitPoints[ui];
 }
 
+// 03a §4: Clear, Burn or Grow forest on (x, y), a tile of city c.
+bool forest_legal(const GameState& s, Slot c, int x, int y, ActionType type) {
+    if (!is_city_tile(s, c, x, y)) {
+        return false;
+    }
+    const TribeState& t = tribe(s, s.cities[c].tribe);
+    const Terrain ter = s.terrain[static_cast<std::size_t>(s.index(x, y))];
+    switch (type) {
+        case ActionType::ClearForest:
+            return ter == Terrain::Forest && t.has_tech(Tech::Forestry);
+        case ActionType::BurnForest:
+            return ter == Terrain::Forest && t.has_tech(Tech::Chivalry) &&
+                   t.stars >= kForestBurnCost;
+        default:  // GrowForest
+            return ter == Terrain::Plain && t.has_tech(Tech::Spiritualism) &&
+                   t.stars >= kForestGrowCost;
+    }
+}
+
 void forest_action(GameState& s, Slot c, int x, int y, ActionType type) {
     TribeState& t = tribe(s, s.cities[c].tribe);
     const auto i = static_cast<std::size_t>(s.index(x, y));
-    check(is_city_tile(s, c, x, y), "forest action: not a city tile");
+    check(forest_legal(s, c, x, y, type), "forest action: illegal");
     switch (type) {
         case ActionType::ClearForest:
-            check(s.terrain[i] == Terrain::Forest && t.has_tech(Tech::Forestry),
-                  "clear forest: illegal");
             s.terrain[i] = Terrain::Plain;
             add_stars(t, kForestClearStars);
             break;
         case ActionType::BurnForest:
-            check(s.terrain[i] == Terrain::Forest && t.has_tech(Tech::Chivalry) &&
-                      t.stars >= kForestBurnCost,
-                  "burn forest: illegal");
             s.terrain[i] = Terrain::Plain;
             s.resource[i] = Resource::Crops;
             t.stars -= kForestBurnCost;
             break;
         default:  // GrowForest
-            check(s.terrain[i] == Terrain::Plain && t.has_tech(Tech::Spiritualism) &&
-                      t.stars >= kForestGrowCost,
-                  "grow forest: illegal");
             s.terrain[i] = Terrain::Forest;
             s.resource[i] = Resource::None;
             t.stars -= kForestGrowCost;
@@ -724,13 +783,19 @@ void build(GameState& s, Slot c, int x, int y, Building b) {
     }
 }
 
+// 03a §3.
+bool destroy_legal(const GameState& s, Slot c, int x, int y) {
+    const City& city = s.cities[c];
+    return is_city_tile(s, c, x, y) &&
+           s.building[static_cast<std::size_t>(s.index(x, y))] != Building::None &&
+           record_at(city, x, y) != nullptr && tribe(s, city.tribe).has_tech(Tech::Construction);
+}
+
 void destroy(GameState& s, Slot c, int x, int y) {
     City& city = s.cities[c];
     const auto i = static_cast<std::size_t>(s.index(x, y));
     const BuildingEntry* rec = record_at(city, x, y);
-    check(s.building[i] != Building::None && rec != nullptr && is_city_tile(s, c, x, y) &&
-              tribe(s, city.tribe).has_tech(Tech::Construction),
-          "destroy: illegal");
+    check(destroy_legal(s, c, x, y), "destroy: illegal");
     const BuildingEntry e = *rec;
     s.building[i] = Building::None;
     if (e.type == Building::Port) {
@@ -748,15 +813,24 @@ void destroy(GameState& s, Slot c, int x, int y) {
 // ---- unit actions ----
 
 // 03b §7: Boat -> Ship, Ship -> Battleship; the replacement keeps the status (unlike embarking).
+UnitType upgraded(UnitType t) {
+    return t == UnitType::Boat ? UnitType::Ship : UnitType::Battleship;
+}
+
+bool upgrade_legal(const GameState& s, Slot u) {
+    const Unit& unit = s.units[u];
+    const TribeState& t = tribe(s, unit.tribe);
+    return ((unit.type == UnitType::Boat && t.has_tech(Tech::Sailing)) ||
+            (unit.type == UnitType::Ship && t.has_tech(Tech::Navigation))) &&
+           t.stars >= kUnitCost[static_cast<std::size_t>(upgraded(unit.type))];
+}
+
 void upgrade(GameState& s, Slot u) {
     const Unit& unit = s.units[u];
     TribeState& t = tribe(s, unit.tribe);
-    const UnitType next = unit.type == UnitType::Boat ? UnitType::Ship : UnitType::Battleship;
+    const UnitType next = upgraded(unit.type);
     const int cost = kUnitCost[static_cast<std::size_t>(next)];
-    check(((unit.type == UnitType::Boat && t.has_tech(Tech::Sailing)) ||
-           (unit.type == UnitType::Ship && t.has_tech(Tech::Navigation))) &&
-              t.stars >= cost,
-          "upgrade: illegal");
+    check(upgrade_legal(s, u), "upgrade: illegal");
     const TurnStatus status = unit.status;
     t.stars -= cost;
     const Slot n = replace_unit(s, u, next, unit.carried);
@@ -764,10 +838,13 @@ void upgrade(GameState& s, Slot u) {
 }
 
 // 03b §7.
+bool make_veteran_legal(const Unit& unit) {
+    return unit.type != UnitType::SuperUnit && unit.kills >= kVeteranKills && !unit.veteran;
+}
+
 void make_veteran(GameState& s, Slot u) {
     Unit& unit = s.units[u];
-    check(unit.type != UnitType::SuperUnit && unit.kills >= kVeteranKills && !unit.veteran,
-          "make veteran: illegal");
+    check(make_veteran_legal(unit), "make veteran: illegal");
     unit.veteran = true;
     unit.max_hp = static_cast<decltype(unit.max_hp)>(unit.max_hp + kVeteranPlusHp);
     unit.hp = unit.max_hp;
@@ -811,6 +888,13 @@ void move(GameState& s, Slot u, int x, int y) {
 }
 
 // 03b §5.
+bool examine_legal(const GameState& s, Slot u) {
+    const Unit& unit = s.units[u];
+    return unit.status == TurnStatus::Fresh &&
+           s.resource[static_cast<std::size_t>(s.index(unit.x, unit.y))] == Resource::Ruins &&
+           !tribe(s, unit.tribe).cities.empty();
+}
+
 void examine(GameState& s, Slot u, Chance& chance) {
     Unit& unit = s.units[u];
     const int p = unit.tribe;
@@ -818,8 +902,7 @@ void examine(GameState& s, Slot u, Chance& chance) {
     const int x = unit.x;
     const int y = unit.y;
     const auto i = static_cast<std::size_t>(s.index(x, y));
-    check(unit.status == TurnStatus::Fresh && s.resource[i] == Resource::Ruins && !t.cities.empty(),
-          "examine: illegal");
+    check(examine_legal(s, u), "examine: illegal");
     const std::int32_t id = unit.id;
     const Slot handler = t.cities.contains(t.capital) ? t.capital : t.cities[0];
     switch (chance.ruin_bonus(t.all_researched)) {
@@ -1005,12 +1088,32 @@ void capture_village(GameState& s, Slot u, Chance& chance) {
     set_network(s, x, y, true);
 }
 
-void capture(GameState& s, Slot u, std::int32_t city_id, Chance& chance) {
+// 03b §3: the capture unit u may make, as the logged target (0 = the village on its tile, else the
+// city's actor id), or nullopt. [Tribes quirk] The city is the tile's border owner, which must be
+// centred on the tile: a city founded inside another city's borders cannot be captured.
+std::optional<std::int32_t> capture_target(const GameState& s, Slot u) {
     const Unit& unit = s.units[u];
+    if (unit.status != TurnStatus::Fresh) {
+        return std::nullopt;
+    }
     const auto i = static_cast<std::size_t>(s.index(unit.x, unit.y));
-    check(unit.status == TurnStatus::Fresh, "capture: unit not fresh");
+    if (s.terrain[i] == Terrain::Village) {
+        return 0;
+    }
+    const Slot c = s.city_owner[i];
+    if (s.terrain[i] != Terrain::City || c == kNoSlot) {
+        return std::nullopt;
+    }
+    const City& city = s.cities[c];
+    if (city.x != unit.x || city.y != unit.y || city.tribe == unit.tribe) {
+        return std::nullopt;
+    }
+    return city.id;
+}
+
+void capture(GameState& s, Slot u, std::int32_t city_id, Chance& chance) {
+    check(capture_target(s, u) == city_id, "capture: illegal");
     if (city_id == 0) {
-        check(s.terrain[i] == Terrain::Village, "capture village: not a village");
         capture_village(s, u, chance);
     } else {
         capture_city(s, u, city_by_id(s, city_id), chance);
@@ -1038,6 +1141,15 @@ long java_round(double v) {
 
 int chebyshev_units(const Unit& a, const Unit& b) { return chebyshev(a.x, a.y, b.x, b.y); }
 
+// 02 §2.
+bool attack_legal(const GameState& s, Slot au, Slot tu) {
+    const Unit& a = s.units[au];
+    const Unit& t = s.units[tu];
+    return t.tribe != a.tribe && can_attack(a) && a.type != UnitType::MindBender &&
+           tribe(s, a.tribe).visible.test(static_cast<std::size_t>(s.index(t.x, t.y))) &&
+           chebyshev_units(a, t) <= kUnitRange[static_cast<std::size_t>(a.type)];
+}
+
 // 02 §2, in Tribes' operation order (hp / maxHp first, then x stat).
 void attack(GameState& s, Slot au, std::int32_t target_id) {
     const Slot tu = unit_by_id(s, target_id);
@@ -1048,9 +1160,7 @@ void attack(GameState& s, Slot au, std::int32_t target_id) {
     TribeState& at = tribe(s, a.tribe);
     TribeState& tt = tribe(s, t.tribe);
     const auto tile = static_cast<std::size_t>(s.index(t.x, t.y));
-    check(t.tribe != a.tribe && can_attack(a) && a.type != UnitType::MindBender &&
-              at.visible.test(tile) && chebyshev_units(a, t) <= kUnitRange[ai],
-          "attack: illegal");
+    check(attack_legal(s, au, tu), "attack: illegal");
     a.status = status_after_attack(a);
     at.pacifist_count = 0;
 
@@ -1117,10 +1227,15 @@ void attack(GameState& s, Slot au, std::int32_t target_id) {
     }
 }
 
+bool disband_legal(const GameState& s, Slot u) {
+    const Unit& unit = s.units[u];
+    return unit.status == TurnStatus::Fresh && tribe(s, unit.tribe).has_tech(Tech::FreeSpirit);
+}
+
 void disband(GameState& s, Slot u) {
     const Unit& unit = s.units[u];
     TribeState& t = tribe(s, unit.tribe);
-    check(unit.status == TurnStatus::Fresh && t.has_tech(Tech::FreeSpirit), "disband: illegal");
+    check(disband_legal(s, u), "disband: illegal");
     const auto ui = static_cast<std::size_t>(unit.type);
     add_stars(t, kUnitCost[ui] / 2);
     t.score -= kUnitPoints[ui];
@@ -1181,7 +1296,188 @@ void rank_tribes(GameState& s) {
     }
 }
 
+// ---- action generation (04 §5) ----
+
+Action at_tile(ActionType type, std::int32_t actor, int x, int y, int param = 0) {
+    return {.type = type,
+            .actor = actor,
+            .x = static_cast<std::uint8_t>(x),
+            .y = static_cast<std::uint8_t>(y),
+            .param = static_cast<std::uint8_t>(param)};
+}
+
+using CityTiles = InlineVector<std::uint16_t, kMaxCityBuildings>;
+
+// 03b §2: city c's tiles for action generation, x-major then y.
+CityTiles city_tiles(const GameState& s, Slot c) {
+    const City& city = s.cities[c];
+    const int r = city.level < 4 ? 1 : 2;
+    CityTiles tiles;
+    for (int x = city.x - r; x <= city.x + r; ++x) {
+        for (int y = city.y - r; y <= city.y + r; ++y) {
+            if (is_city_tile(s, c, x, y)) {
+                tiles.push_back(static_cast<std::uint16_t>(s.index(x, y)));
+            }
+        }
+    }
+    return tiles;
+}
+
+// Legality of the one-variant-per-tile city actions (Burn / Clear / Grow forest, Destroy, Gather).
+bool tile_action_legal(const GameState& s, Slot c, int x, int y, ActionType type) {
+    switch (type) {
+        case ActionType::Destroy:
+            return destroy_legal(s, c, x, y);
+        case ActionType::GatherResource:
+            return gather_legal(s, c, x, y);
+        default:
+            return forest_legal(s, c, x, y, type);
+    }
+}
+
+// City c's actions other than level-up, in Tribes' factory order; each factory scans the city
+// tiles.
+void city_actions(const GameState& s, Slot c, ActionList& out) {
+    const City& city = s.cities[c];
+    const CityTiles tiles = city_tiles(s, c);
+    const auto each_tile = [&](const auto& f) {
+        for (const std::uint16_t i : tiles) {
+            f(i / s.side, i % s.side);
+        }
+    };
+    each_tile([&](int x, int y) {
+        for (int b = 0; b < static_cast<int>(Building::None); ++b) {
+            if (build_legal(s, c, x, y, static_cast<Building>(b))) {
+                out.push_back(at_tile(ActionType::Build, city.id, x, y, b));
+            }
+        }
+    });
+    for (const ActionType type :
+         {ActionType::BurnForest, ActionType::ClearForest, ActionType::Destroy,
+          ActionType::GrowForest, ActionType::GatherResource}) {
+        each_tile([&](int x, int y) {
+            if (tile_action_legal(s, c, x, y, type)) {
+                const int param = type == ActionType::GatherResource
+                                      ? static_cast<int>(s.resource[s.index(x, y)])
+                                      : 0;
+                out.push_back(at_tile(type, city.id, x, y, param));
+            }
+        });
+    }
+    for (int u = 0; u <= static_cast<int>(UnitType::MindBender); ++u) {
+        if (spawn_legal(s, c, static_cast<UnitType>(u))) {
+            out.push_back({.type = ActionType::Spawn,
+                           .actor = city.id,
+                           .param = static_cast<std::uint8_t>(u)});
+        }
+    }
+}
+
+// Unit u's actions in Tribes' factory order (04 §5); Convert and Heal others are not implemented.
+void unit_actions(const GameState& s, Slot u, ActionList& out) {
+    const Unit& unit = s.units[u];
+    const auto simple = [&](ActionType type) { out.push_back({.type = type, .actor = unit.id}); };
+    if (upgrade_legal(s, u)) {
+        simple(ActionType::Upgrade);
+    }
+    if (unit.status == TurnStatus::Finished) {
+        return;
+    }
+    const int range = kUnitRange[static_cast<std::size_t>(unit.type)];
+    for (int x = unit.x - range; x <= unit.x + range; ++x) {
+        for (int y = unit.y - range; y <= unit.y + range; ++y) {
+            const Slot t =
+                s.on_board(x, y) ? s.unit_at[static_cast<std::size_t>(s.index(x, y))] : kNoSlot;
+            if (t != kNoSlot && t != u && attack_legal(s, u, t)) {
+                out.push_back(
+                    {.type = ActionType::Attack, .actor = unit.id, .target = s.units[t].id});
+            }
+        }
+    }
+    if (const auto target = capture_target(s, u)) {
+        out.push_back({.type = ActionType::Capture, .actor = unit.id, .target = *target});
+    }
+    if (disband_legal(s, u)) {
+        simple(ActionType::Disband);
+    }
+    if (examine_legal(s, u)) {
+        simple(ActionType::Examine);
+    }
+    if (make_veteran_legal(unit)) {
+        simple(ActionType::MakeVeteran);
+    }
+    if (can_move(unit)) {
+        MoveTargets targets;
+        move_targets(s, u, targets);
+        for (int k = 0; k < targets.count; ++k) {
+            const int i = targets.tiles[static_cast<std::size_t>(k)];
+            out.push_back(at_tile(ActionType::Move, unit.id, i / s.side, i % s.side));
+        }
+    }
+    if (can_recover(s, u)) {
+        simple(ActionType::Recover);
+    }
+}
+
+// Tribe p's actions (04 §5 step 3); End turn is added by the caller.
+void tribe_actions(const GameState& s, int p, ActionList& out) {
+    for (int x = 0; x < s.side; ++x) {
+        for (int y = 0; y < s.side; ++y) {
+            if (road_legal(s, p, x, y)) {
+                out.push_back(at_tile(ActionType::BuildRoad, p, x, y));
+            }
+        }
+    }
+    for (int k = 0; k < kNumTechs; ++k) {
+        if (research_legal(tribe(s, p), static_cast<Tech>(k))) {
+            out.push_back({.type = ActionType::ResearchTech,
+                           .actor = p,
+                           .param = static_cast<std::uint8_t>(k)});
+        }
+    }
+    for (int q = 0; q < s.num_tribes; ++q) {
+        if (declare_war_legal(s, p, q)) {
+            out.push_back({.type = ActionType::DeclareWar, .actor = p, .target = q});
+        }
+    }
+    for (int q = 0; q < s.num_tribes; ++q) {
+        for (int n = 1; n < kSendStarsBound; ++n) {
+            if (send_stars_legal(s, p, q, n)) {
+                out.push_back({.type = ActionType::SendStars,
+                               .actor = p,
+                               .target = q,
+                               .amount = static_cast<std::int16_t>(n)});
+            }
+        }
+    }
+}
+
 }  // namespace
+
+void legal_actions(const GameState& s, ActionList& out) {
+    out.clear();
+    if (s.game_over) {
+        return;
+    }
+    const int p = s.active_tribe;
+    for (Slot c : tribe(s, p).cities) {
+        const City& city = s.cities[c];
+        if (can_level_up(city)) {  // only this city's level-up variants, no End turn
+            out.clear();
+            const int first = 2 * level_up_pair(city);
+            for (int b = first; b < first + 2; ++b) {
+                out.push_back({.type = ActionType::LevelUp,
+                               .actor = city.id,
+                               .param = static_cast<std::uint8_t>(b)});
+            }
+            return;
+        }
+        city_actions(s, c, out);
+    }
+    for_each_unit_of(s, p, [&](Slot u) { unit_actions(s, u, out); });
+    tribe_actions(s, p, out);
+    out.push_back({.type = ActionType::EndTurn, .actor = p});
+}
 
 Slot city_by_id(const GameState& s, std::int32_t id) {
     for (std::size_t i = 0; i < s.cities.size(); ++i) {

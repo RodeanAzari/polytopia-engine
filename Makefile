@@ -45,7 +45,8 @@ difftest-init: build
 	build/release/oracle_diff build/oracle-logs/init/*.log
 
 # Replay difftest: N whole oracle games (2..8 players, both modes, Random / Rule Based), replayed
-# action by action; every state, the end tick and each tribe's result and score must match.
+# action by action; every state, every legal-action set, the end tick and each tribe's result and
+# score must match.
 # Logs are ~40 MB per game (build/oracle-logs/full, regenerated each run).
 difftest: build
 	rm -rf build/oracle-logs/full
