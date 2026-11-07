@@ -52,6 +52,10 @@ board copy in Tribes; no observable difference.
 **Legal** (unit U of tribe P, Fresh, on tile X):
 - X is a village → capture village (no other checks: diplomacy, enemies near etc. are ignored);
 - X is a city centre whose owner ≠ P → capture city. (U necessarily stands on the city tile.)
+  [Tribes quirk, found 2026-11-07] The city is looked up as X's **border owner**, and its centre must be X.
+  A city founded on a village inside another city's borders keeps that tile owner (village step 3), so it
+  **can never be captured** (e.g. a village inside your capital's borders, once captured). Covered by a unit
+  test; the oracle corpus never reaches it.
 Generated at most once per unit.
 
 **Village capture:**

@@ -82,6 +82,12 @@ actions. No actions at all once the game is over.
 3. **Tribe actions**, in order: Build road (03b §8), Research (03a), Declare war (§6.3), Send stars (§6.4),
    End turn (available iff no level-up is pending).
 
+[Tribes note] The list agents receive (`getAllAvailableActions`) is **not** in this order: tribe actions come
+first, then each city's and each unit's actions in `HashMap` key order (actor id modulo bucket count, which is
+ascending id until the map resizes). Matters only for replicating Tribes agents' choices (e.g. Random picks by
+index); our simulator keeps the generation order above. Units in no list (03b §4) get no actions.
+Verified 2026-11-07: the C++ generator matches every logged legal set (as a multiset) in 140 full-obs games.
+
 ## 6. Diplomacy
 
 ### 6.1 State
