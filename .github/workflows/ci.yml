@@ -7,3 +7,18 @@ jobs:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y ninja-build clang-tidy
       - run: make ci
+
+  # Short replay difftest against Tribes (ADR-002 amendment 2026-11-06): Tribes is cloned at the
+  # pinned commit on the runner by `make setup`, never vendored; logs stay on the runner.
+  difftest:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - run: make setup
+      - run: make difftest N=7              # 2..8 players, both modes: every state + legal-action set
+      - run: make difftest-mindbender N=3   # Heal others, Convert
