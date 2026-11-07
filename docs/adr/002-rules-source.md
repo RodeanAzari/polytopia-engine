@@ -45,3 +45,8 @@ by copyright. Their expression in code is.
   Seeded map generation in our sim is independent of Tribes' (same distributions, not the same maps).
 - The README credits The Battle of Polytopia (Midjiwan) and Tribes (GAIG, QMUL), and states this
   licensing position.
+
+## Amendment 2026-11-06: Tribes in CI
+Approved by the user: CI may clone Tribes at the pinned commit (via `make setup`) on the CI runner and run a short
+replay difftest there. This counts as running the oracle, like a local run; Tribes is still never vendored,
+committed or redistributed, and logs stay build artifacts (not committed).
