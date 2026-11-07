@@ -125,7 +125,11 @@ For tribe P owning its capital:
 2. **Navigable water**: water tiles visible to P and outside other tribes' borders.
 3. **Port links**: for every pair of P's ports, if a water path exists over navigable tiles with at most
    **4 steps** (8-directional, each step 1, the destination port counts as a step), the two ports are linked
-   both ways (a link is a single step).
+   both ways (a link is a single step). [Tribes quirk, found by the partial-obs difftest 2026-11-07] Each pair
+   is searched **once, from the earlier port to the later one** (ports in row-major order); the destination
+   must be navigable, the origin need not be. So a pair whose later port tile is not navigable (e.g. not
+   visible to P) is never linked, even if the reverse search would succeed. Under full obs own ports are
+   always visible, so this never shows there.
 4. For every non-capital city of P: connected iff a path exists from the capital over connected tiles and
    port links (8-directional).
 5. Changes vs. the stored connected set:
@@ -138,7 +142,8 @@ For tribe P owning its capital:
 [Sim note] Path existence here uses Tribes' A* (section 02). For step 4 the neighbours don't depend on
 cost-so-far, so existence is order-independent and a plain BFS gives the same answer. For step 3 they do
 (≤ 4 steps), but with unit 8-directional steps and the Chebyshev heuristic (consistent) the A* finds the shortest
-path, so "shortest water path ≤ 4" is equivalent. Both are to be confirmed by the difftest.
+path, so "shortest water path ≤ 4" is equivalent, **searched one way** (step 3 quirk). Confirmed by the difftest
+in both observability modes (2026-11-07).
 
 ## Resolved from section 01
 - Port / customs semantics (population vs. production), port trade distance, monument unlock conditions

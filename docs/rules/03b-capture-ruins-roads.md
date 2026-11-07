@@ -14,7 +14,8 @@ starts all-visible. Consequences in the oracle as built:
 - "visible" checks (roads, convert/attack target visibility) always pass.
 
 The rules below give the partial-obs behaviour too, so the simulator can run either mode.
-The difftest checks both modes (ADR-004).
+The difftest checks both modes (ADR-004): `make difftest OBS=partial` runs a local build copy with only this
+constant flipped. Verified 2026-11-07: 140/140 partial-obs games (800 meeting draws) match.
 
 ## 1. Clear view (vision update; used by moves, explorer, new cities)
 
@@ -29,8 +30,10 @@ Clear view for tribe P at centre X, radius r: tiles = neighbourhood(X, r), then 
   added even when Q = P, so a tribe's first clear view usually adds **itself** (it sees its own city).
 - The code intends "Q also meets P" when P enters Q's vision, but calls the meet on P with P's own id, so it
   never makes Q meet P. Each tribe only meets others through its own clear views.
-- Partial obs only: on a new meeting, P gains one random tech Q has and P lacks (uniform draw over techs in
-  enum order; no draw if none).
+- Partial obs only: on a new meeting, P draws one random tech Q has and P lacks (uniform draw over techs in
+  enum order; no draw if none). [Tribes quirk, found 2026-11-07] The tech is applied with the Research rule's
+  check, so it is granted **only if researchable** (its parent known); otherwise the draw is spent and nothing
+  is gained. No score, no Tower of Wisdom; the "all researched" re-check runs for a leaf (01).
 - Partial obs only: afterwards, if Eye of God is *unavailable* and every tile is visible, it becomes *available*.
 
 Callers: a unit move (section 02), the explorer (requests a network recomputation if step 1 asked for one),

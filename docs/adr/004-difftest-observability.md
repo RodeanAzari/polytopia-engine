@@ -28,3 +28,10 @@ meeting a tribe and no Eye of God unlock (rule facts 03b §0). Our agent must pl
 ## Risks
 The partial-obs path in Tribes is less exercised than the default. A divergence there may be a Tribes bug;
 we still match Tribes and record the quirk in the rule-facts sheet.
+
+## Outcome (2026-11-07)
+Implemented as decided: `make setup` builds `build/tribes-po` from a copy of the pinned sources with only
+`PLAY_WITH_FULL_OBS` flipped (the copy step fails if that line is not found exactly once); `OBS=partial`
+selects it for `difftest-init`, `difftest` and `difftest-mindbender`. Results: map load 700/700, whole games
+140/140 (800 meeting tech draws), Mind Bender scenario 100/100. The partial-obs path found one Tribes quirk
+the full-obs build cannot show (one-directional port links, 03a §6) and one in meeting techs (03b §1).
