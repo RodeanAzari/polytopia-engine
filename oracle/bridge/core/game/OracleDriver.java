@@ -6,6 +6,7 @@
 //   GAME <levelSeed> <gameSeed> <mode> <fullObs 0|1>
 //   LEVEL <n>, then n lines of the generated level
 //   SEAT <tribeId> <tribeType> <playerIndex>
+//   SETUP <scenario>                               state edits applied after map load (see applyScenario)
 //   RAND <caller> <method> <bound|-> <value>       every draw on the game RNG, in order
 //   TURN <tick> <tribeId>                          before turn start
 //   ACTIONS <count>, then one "A <action>" line each (sorted)   legal actions when the agent is asked
@@ -124,9 +125,11 @@ public final class OracleDriver {
      * Runs one game. agentsByRequest[i] plays tribes[i] (seats bind by tribe type, rule facts 05 §1.2).
      * @param dumpStates false = skip STATE/ACTIONS records (faster; for the loop-equivalence check).
      * @param initOnly   stop after the initial state (map-load difftests).
+     * @param scenario   "" or "mindbender" (see applyScenario).
      */
     public static void run(long levelSeed, long gameSeed, Types.GAME_MODE mode, Types.TRIBE[] tribes,
-                           Agent[] agentsByRequest, boolean dumpStates, boolean initOnly, PrintStream out)
+                           Agent[] agentsByRequest, boolean dumpStates, boolean initOnly, String scenario,
+                           PrintStream out)
             throws Exception {
         LoggingRandom rnd = new LoggingRandom(gameSeed, out);
         out.println("GAME " + levelSeed + " " + gameSeed + " " + mode + " " + (core.Constants.PLAY_WITH_FULL_OBS ? 1 : 0));
@@ -154,6 +157,10 @@ public final class OracleDriver {
             players[id].setPlayerIDs(id, allIds);
             out.println("SEAT " + id + " " + tt[id].getType() + " " + req);
         }
+        if (!scenario.isEmpty()) {
+            applyScenario(gs, scenario);
+            out.println("SETUP " + scenario);
+        }
         if (dumpStates || initOnly) dumpState(gs, out);
         if (initOnly) return;
 
@@ -173,6 +180,21 @@ public final class OracleDriver {
         out.println("GAMEEND " + gs.getTick());
         for (int id = 0; id < n; ++id)
             out.println("RESULT " + id + " " + tt[id].getWinner() + " " + tt[id].getScore());
+    }
+
+    /**
+     * Targeted scenarios for rules that normal games rarely reach. Applied after map load, before the
+     * first state dump, so the replay applies the same edit and the first STATE checks it.
+     * mindbender: every tribe gets Climbing, Meditation and Philosophy marked researched (no score, no
+     * "all researched" re-check), so Mind Benders (Heal others, Convert) can be spawned from turn 0.
+     */
+    private static void applyScenario(GameState gs, String scenario) {
+        if (!scenario.equals("mindbender")) throw new IllegalArgumentException("unknown scenario " + scenario);
+        for (Tribe t : gs.getTribes()) {
+            t.getTechTree().doResearchInit(Types.TECHNOLOGY.CLIMBING);
+            t.getTechTree().doResearchInit(Types.TECHNOLOGY.MEDITATION);
+            t.getTechTree().doResearchInit(Types.TECHNOLOGY.PHILOSOPHY);
+        }
     }
 
     private static void playTurn(GameState gs, int id, Tribe tribe, Agent ag, boolean dumpStates,

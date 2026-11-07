@@ -1,7 +1,9 @@
 // Our own harness (ADR-002): logs one seeded Tribes game for differential tests (see
-// core/game/OracleDriver.java for the log format). Agents are built exactly as in OracleRun.
+// core/game/OracleDriver.java for the log format). Agents are built exactly as in OracleRun, plus our
+// "MindBender" agent (MindBenderAgent.java) for the mindbender scenario.
 //
-// Usage: OracleLog <levelSeed> <gameSeed> <agentSeed> <Capitals|Score> <players,...> <tribes,...> [--no-states|--init-only]
+// Usage: OracleLog <levelSeed> <gameSeed> <agentSeed> <Capitals|Score> <players,...> <tribes,...>
+//                  [--no-states|--init-only] [--scenario=mindbender]
 
 import core.Types;
 import core.game.OracleDriver;
@@ -12,9 +14,21 @@ import java.io.PrintStream;
 
 public class OracleLog {
     public static void main(String[] args) throws Exception {
-        String flag = args.length == 7 ? args[6] : "";
-        if (args.length < 6 || args.length > 7 || !(flag.isEmpty() || flag.equals("--no-states") || flag.equals("--init-only"))) {
-            System.err.println("usage: OracleLog <levelSeed> <gameSeed> <agentSeed> <Capitals|Score> <players,...> <tribes,...> [--no-states|--init-only]");
+        String flag = "";
+        String scenario = "";
+        boolean ok = args.length >= 6;
+        for (int i = 6; i < args.length; ++i) {
+            if (args[i].equals("--no-states") || args[i].equals("--init-only")) {
+                ok = ok && flag.isEmpty();
+                flag = args[i];
+            } else if (args[i].equals("--scenario=mindbender")) {
+                scenario = "mindbender";
+            } else {
+                ok = false;
+            }
+        }
+        if (!ok) {
+            System.err.println("usage: OracleLog <levelSeed> <gameSeed> <agentSeed> <Capitals|Score> <players,...> <tribes,...> [--no-states|--init-only] [--scenario=mindbender]");
             System.exit(2);
         }
         long levelSeed = Long.parseLong(args[0]);
@@ -33,7 +47,8 @@ public class OracleLog {
         Agent[] agents = new Agent[playerNames.length];
         for (int i = 0; i < tribeNames.length; ++i) {
             tribes[i] = Run.parseTribeStr(tribeNames[i]);
-            agents[i] = Run.getAgent(Run.parsePlayerTypeStr(playerNames[i]), agentSeed);
+            agents[i] = playerNames[i].equals("MindBender") ? new MindBenderAgent(agentSeed + i)
+                    : Run.getAgent(Run.parsePlayerTypeStr(playerNames[i]), agentSeed);
             if (agents[i] == null) {
                 System.err.println("unknown player: " + playerNames[i]);
                 System.exit(2);
@@ -42,7 +57,7 @@ public class OracleLog {
         // Tribes prints diagnostics to System.out; keep them out of the log by giving the log its own stream.
         PrintStream log = new PrintStream(new BufferedOutputStream(new java.io.FileOutputStream(java.io.FileDescriptor.out), 1 << 16), false, "UTF-8");
         System.setOut(System.err);
-        OracleDriver.run(levelSeed, gameSeed, mode, tribes, agents, flag.isEmpty(), flag.equals("--init-only"), log);
+        OracleDriver.run(levelSeed, gameSeed, mode, tribes, agents, flag.isEmpty(), flag.equals("--init-only"), scenario, log);
         log.flush();
     }
 }

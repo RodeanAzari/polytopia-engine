@@ -4,7 +4,7 @@ TRIBES_COMMIT := 270e7e564630e5ef3dcc04c96dd66f58ef7273f3
 GEN := $(shell command -v ninja >/dev/null 2>&1 && echo "-G Ninja")
 JOBS ?= $(shell nproc)
 
-.PHONY: setup oracle-smoke oracle-equiv oracle-log difftest-init build test tidy format clean difftest bench tournament selfplay train plots ci
+.PHONY: setup oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender build test tidy format clean difftest bench tournament selfplay train plots ci
 
 # Tribes is unlicensed: cloned locally at a pinned commit, never committed (ADR-002).
 setup:
@@ -52,6 +52,13 @@ difftest: build
 	rm -rf build/oracle-logs/full
 	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/full --full
 	build/release/oracle_diff build/oracle-logs/full/*.log
+
+# Mind Bender scenario (Heal others, Convert never occur in normal games): every tribe starts with
+# Philosophy, our MindBender agent vs. Random, 2..4 players. ~5 MB per game.
+difftest-mindbender: build
+	rm -rf build/oracle-logs/mindbender
+	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/mindbender --full --scenario=mindbender
+	build/release/oracle_diff build/oracle-logs/mindbender/*.log
 
 build:
 	cmake -S . -B build/release $(GEN) -DCMAKE_BUILD_TYPE=Release
