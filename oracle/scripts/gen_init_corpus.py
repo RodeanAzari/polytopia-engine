@@ -10,8 +10,10 @@ alternating with Random, level seeds from 200000 (OracleLog / MindBenderAgent.ja
 
 --partial: use the partial-obs oracle build (build/tribes-po, ADR-004) instead of stock Tribes.
 
-Usage: gen_init_corpus.py N OUT_DIR [--full] [--scenario=mindbender] [--partial]   (repo root, after
-`make setup`)
+--start=K: seeds K .. K+N-1 instead of 0 .. N-1 (same games as one big corpus; used for batches).
+
+Usage: gen_init_corpus.py N OUT_DIR [--full] [--scenario=mindbender] [--partial] [--start=K]   (repo root,
+after `make setup`)
 """
 
 import os
@@ -47,9 +49,10 @@ def main() -> int:
     extra = [a for a in sys.argv[3:] if a.startswith("--scenario=")]
     build = "tribes-po" if "--partial" in sys.argv[3:] else "tribes"
     cp = f"../../build/{build}:lib/json.jar"
+    start = next((int(a.split("=", 1)[1]) for a in sys.argv[3:] if a.startswith("--start=")), 0)
     os.makedirs(out_dir, exist_ok=True)
     with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as ex:
-        list(ex.map(lambda k: job(k, out_dir, full, extra, cp), range(n)))
+        list(ex.map(lambda k: job(k, out_dir, full, extra, cp), range(start, start + n)))
     print(f"{n} logs in {out_dir}")
     return 0
 

@@ -4,7 +4,7 @@ TRIBES_COMMIT := 270e7e564630e5ef3dcc04c96dd66f58ef7273f3
 GEN := $(shell command -v ninja >/dev/null 2>&1 && echo "-G Ninja")
 JOBS ?= $(shell nproc)
 
-.PHONY: setup oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender build test tidy format clean difftest bench tournament selfplay train plots ci
+.PHONY: setup oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender difftest-batched build test tidy format clean difftest bench tournament selfplay train plots ci
 
 # Tribes is unlicensed: cloned locally at a pinned commit, never committed (ADR-002).
 setup:
@@ -75,6 +75,12 @@ difftest-mindbender: build
 	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/mindbender$(PO) --full \
 	  --scenario=mindbender $(OBSFLAG)
 	build/release/oracle_diff build/oracle-logs/mindbender$(PO)/*.log
+
+# Replay difftest at scale (Phase 1 DoD: >= 1,000 games): same games as `make difftest N=`, generated,
+# replayed and deleted BATCH at a time; failing logs kept in build/oracle-logs/batched$(PO)/failed/.
+BATCH ?= 32
+difftest-batched: build
+	python3 oracle/scripts/difftest_batched.py $(N) build/oracle-logs/batched$(PO) --batch=$(BATCH) $(OBSFLAG)
 
 build:
 	cmake -S . -B build/release $(GEN) -DCMAKE_BUILD_TYPE=Release
