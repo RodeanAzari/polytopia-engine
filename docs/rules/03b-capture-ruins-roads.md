@@ -156,8 +156,8 @@ other terrain are ignored. No unit is created.
 | Action | Legal iff | Effect |
 |---|---|---|
 | **Recover** | U Fresh; 0 < HP < max HP | HP += 2, +2 more if U's tile is in borders of one of U's tribe's cities; capped at max HP; → Finished |
-| **Heal others** | U is a Mind Bender and can attack (section 02 status); some unit of U's tribe within U's range (neighbourhood, U's tile excluded) has HP < max | each such unit +4 HP, capped; U → Attacked |
-| **Convert** (target T) | U is a Mind Bender and can attack; T is another tribe's unit within range; T's tile visible to U's tribe | T leaves its city list (or Q's tribe-owned list), joins the **active** tribe as a tribe-owned unit, → Finished; U → Attacked. No score moves. Diplomacy: see quirk |
+| **Heal others** | U is a Mind Bender and can attack (section 02 status); some unit of U's tribe within U's range (neighbourhood, U's tile excluded) has HP < max | each such unit +4 HP, capped; U → **Finished** (transition "attacked" for a Mind Bender, 02 §1) |
+| **Convert** (target T) | U is a Mind Bender and can attack; T is another tribe's unit within range; T's tile visible to U's tribe | T leaves its city list (or Q's tribe-owned list), joins the **active** tribe as a tribe-owned unit (city id → none), → Finished; U → **Finished**. No score moves. Diplomacy: see quirk |
 | **Make veteran** | U not a Super unit; kills ≥ 3; not veteran | veteran; max HP +5; HP = max HP. **Any** status, status unchanged |
 | **Upgrade** | Boat + Sailing + stars ≥ 5, or Ship + Navigation + stars ≥ 15. **Any** status | −cost; replaced by a new Ship / Battleship (new actor id) with same HP, max HP, kills, veteran flag, carried land unit, city, and **status** |
 | **Disband** | U Fresh; Free Spirit | +floor(U's cost / 2) stars; U removed; score −U's points |
@@ -167,6 +167,8 @@ other terrain are ignored. No unit is created.
   diplomacy status (can target allies).
 - Generation: Convert scans U's neighbourhood (radius = range) for other tribes' units; Heal others and the
   rest yield at most one action per unit.
+- Verified 2026-11-07 against the oracle (Mind Bender scenario, `make difftest-mindbender`): this table said
+  U → Attacked for Heal others and Convert; Tribes' transition makes a Mind Bender Finished. Corrected above.
 - Disband's cost is the unit-table cost (section 01: Ship 5, Battleship 15, Super unit 10).
 
 ## 8. Roads

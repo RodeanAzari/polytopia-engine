@@ -30,14 +30,15 @@
 - 2026-11-07: C++ action generation (`legal_actions`, 04 §5 order): 140/140 games, 278,332 logged legal sets
   match as multisets. One shared `*_legal` predicate per action for generation and execution. New 03b §3 quirk:
   a city founded inside another city's borders can't be captured (unit test; corpus never reaches it).
+- 2026-11-07: Mind Bender (Heal others, Convert): `make difftest-mindbender N=100` → 100/100 games, 71,560 states,
+  59,253 legal sets, 479 Converts + 226 Heals executed. Scenario = Philosophy for all at load (`SETUP` line) +
+  our `MindBenderAgent` (bridge) vs Random. **Every Tribes action type is now implemented and difftested.**
 - 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
 
 ### Next (agreed order, 2026-11-06)
-1. Mind Bender (Heal others, Convert): bridge option `--scenario mindbender` that grants Philosophy (+prereqs) and
-   stars after map load, logged as a `SETUP` line our replay applies; then implement + a few unit tests for the
-   Convert quirks (03b §7). Never occur in 140 normal games.
-2. CI: short replay difftest (`make setup` + `make difftest N=7`, Java on the runner). Allowed by ADR-002 amendment.
-3. Oracle bridge: partial-obs build (`PLAY_WITH_FULL_OBS=false`, [ADR-004](docs/adr/004-difftest-observability.md));
+1. CI: short replay difftest (`make setup` + `make difftest N=7` + `make difftest-mindbender N=3`, Java on the
+   runner). Allowed by ADR-002 amendment.
+2. Oracle bridge: partial-obs build (`PLAY_WITH_FULL_OBS=false`, [ADR-004](docs/adr/004-difftest-observability.md));
    canonical action format (action-encoding ADR); log compression (~40 MB per game).
 
 ### Known oracle caveats
