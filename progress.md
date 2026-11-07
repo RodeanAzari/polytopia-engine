@@ -36,8 +36,8 @@
 - 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
 
 ### Next (agreed order, 2026-11-06)
-1. CI: short replay difftest (`make setup` + `make difftest N=7` + `make difftest-mindbender N=3`, Java on the
-   runner). Allowed by ADR-002 amendment.
+1. CI `difftest` job written (`make setup`, `make difftest N=7`, `make difftest-mindbender N=3`; fresh-clone run
+   passes locally, ~3 CPU-min). **Not yet run on GitHub**: confirm on the first push.
 2. Oracle bridge: partial-obs build (`PLAY_WITH_FULL_OBS=false`, [ADR-004](docs/adr/004-difftest-observability.md));
    canonical action format (action-encoding ADR); log compression (~40 MB per game).
 
@@ -51,5 +51,6 @@
 - This Tribes commit includes **diplomacy** (wars, sending stars), a post-paper extension → include in the rule-facts sheet.
 
 ### Open items
+- README.md written 2026-11-07 (§13.4 structure; dashes for unmeasured rows). Repo licence: MIT (user, 2026-11-07).
 - ruff isn't installed locally and CI has no Python step yet: `oracle/scripts/*.py` is unlinted. Add with `make setup` venv.
 - Permission email to the Tribes authors drafted (`docs/tribes-permission-request.md`); not yet sent.
