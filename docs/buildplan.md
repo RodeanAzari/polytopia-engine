@@ -110,7 +110,7 @@ Reimplement MCTS and RHEA as in the paper, and **reproduce the paper's win rates
 Every phase's DoD includes **README updated, log entry, media captured, user confirming captures**.
 
 ### Phase 1 — Simulator
-- [ ] Licence check done; rules-source ADR written
+- [x] Licence check done; rules-source ADR written (ADR-002)
 - [ ] Port passes the differential test on ≥ 1,000 seeded Tribes games (or every difference explained)
 - [ ] Benchmark vs. Tribes' Java forward model
 - [ ] Media: simulator speed chart; replay viewer screenshot

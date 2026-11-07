@@ -8,8 +8,8 @@ search, and a policy/value network trained by self-play.
 **Phase 1, the simulator, is under way, and its rules are verified against the reference.** Every rule is
 written from a facts-only rule sheet, then checked by replaying games logged from
 [Tribes](https://github.com/GAIGResearch/Tribes), the research framework's Java forward model, action by
-action. In **240 whole games, every one of 375,201 game states and every one of 337,585 legal-action sets
-matches the oracle exactly**, covering every action type Tribes has. Search and learning come next; until they
+action, with and without fog of war. In **480 whole games, every one of 759,584 game states and every one of
+683,906 legal-action sets matches the oracle exactly**, covering every action type Tribes has. Search and learning come next; until they
 exist, every row below that needs them is a dash.
 
 Every number here links to the lab notebook or decision record where it was measured, with the command that
@@ -22,7 +22,7 @@ reproduces it. Dashes mean not measured yet.
 | | |
 |---|---|
 | **Game and rules source** | The Polytopia rules as implemented by Tribes (commit `270e7e5`): 12 tribes, 24 techs, 12 unit types, 19 buildings, ruins, diplomacy, Capitals and Score modes. Reimplemented from a written [rule-facts sheet](docs/rules/); Tribes has no licence, so none of its code is used ([ADR-002](docs/adr/002-rules-source.md)) |
-| **Differential test** | **Map load: 700/700** initial states (2–8 players, all 12 tribes, both modes). **Whole games: 140/140** normal games, 303,641 states, 278,332 legal-action sets; **100/100** Mind Bender scenario games, 71,560 states, 59,253 legal sets. Zero mismatches ([2026-11-06](docs/notebook/2026-11-06.md), [2026-11-07](docs/notebook/2026-11-07.md)) |
+| **Differential test** | Zero mismatches, in both observability modes ([2026-11-06](docs/notebook/2026-11-06.md), [2026-11-07](docs/notebook/2026-11-07.md)). **Map load: 700/700** initial states each with and without fog (2–8 players, all 12 tribes, both game modes). **Full observability:** 140/140 games (303,641 states, 278,332 legal-action sets) and 100/100 Mind Bender scenario games (71,560 / 59,253). **Fog of war:** 140/140 games (312,052 / 286,254, including 800 random tech draws on meeting a tribe) and 100/100 Mind Bender games (72,331 / 60,067) |
 | **Simulator speed vs. Tribes** | — (`make bench`, Phase 1) |
 | **State** | One trivially copyable value type, **32.7 KB**, ~1.1 µs per copy (i9-11950H, WSL2, g++ 15 -O3; [ADR-005](docs/adr/005-state-encoding.md)) |
 | **Search method** | — (action-level MCTS with macro-actions, Phase 3) |
@@ -30,14 +30,14 @@ reproduces it. Dashes mean not measured yet.
 | **Win rate vs. all Tribes agents** | — |
 | **Network and training compute** | — (Phase 4) |
 | **Human results** | — (Phase 5) |
-| **Tests** | 30 GoogleTest unit tests, Release and Debug with ASan/UBSan; every difftest also run under the sanitizers on a subset |
-| **CI** | Build, unit tests, clang-tidy and sanitizers; a short replay difftest against Tribes on every push |
+| **Tests** | 35 GoogleTest unit tests, Release and Debug with ASan/UBSan; every difftest also run under the sanitizers on a subset |
+| **CI** | Build, unit tests, clang-tidy and sanitizers; a short replay difftest against Tribes, with and without fog, on every push |
 
 ## Status
 
 | Phase | State |
 |---|---|
-| 1 — Simulator | **In progress**: rule-facts sheet done; map load, every action type and legal-action generation bit-exact under full observability. Remaining: partial observability (fog), throughput benchmark |
+| 1 — Simulator | **In progress**: rule-facts sheet done; map load, every action type and legal-action generation bit-exact, with and without fog. Remaining: the agent's observation (the fog-filtered view search will use), throughput benchmark |
 | 2 — Search baselines | Not started |
 | 3 — Action-level MCTS + heuristic priors | Not started |
 | 4 — Learned policy/value network | Not started (needs GPU time) |
@@ -99,6 +99,9 @@ Matching Tribes exactly means matching its bugs; each is recorded in the sheet a
 - A city founded on a village inside another city's borders **can never be captured**: Capture looks up the
   tile's border owner ([03b §3](docs/rules/03b-capture-ruins-roads.md)).
 - Philosophy gives an **80 %** research discount, not 20 % ([01](docs/rules/01-constants.md)).
+- Under fog, two of a tribe's ports are linked only if a search **from the earlier port to the later one**
+  succeeds; the reverse never counts, so a port hidden from its own tribe can't receive a link
+  ([03a §6](docs/rules/03a-cities-economy.md)). Found by the fog difftest after 139 of 140 games matched.
 
 ## Simulator
 
@@ -122,8 +125,12 @@ confidence intervals, agent versions, seeds and hardware; engine changes will be
 - **The rules are Tribes' subset, not the current commercial game**: Tribes models a 2020 version with
   simplifications and its own quirks (above), and some content the real game has is absent. Phase 6
   ([ADR-003](docs/adr/003-real-game-phase.md)) addresses the real game.
-- **Full observability only, so far.** The pinned Tribes commit is built to play with full observability;
-  the fog (partial observability) path needs a second oracle build and is the next difftest ([ADR-004](docs/adr/004-difftest-observability.md)).
+- **The fog oracle is a one-line build change.** The pinned Tribes commit plays with full observability; the fog
+  path is checked against a local build with only that constant flipped
+  ([ADR-004](docs/adr/004-difftest-observability.md)), a configuration Tribes doesn't use by default. Where it
+  behaves oddly we still match it, and record the quirk.
+- **No agent observation yet.** The rules run with fog, but the filtered view an agent sees (what search and
+  training may use) is not built; nothing searches yet, so nothing can peek.
 - **Tribes' search agents are not reproducible run to run** (an unseeded RNG inside `GameState.copy()`), so games
   against them are reproducible only statistically. Difftests replay logged actions and are unaffected.
 - **No speed number yet.** The simulator's throughput against Tribes has not been measured.
@@ -154,10 +161,11 @@ Python 3.11+, and clang-tidy for `make ci`.
 
 | Target | Does |
 |---|---|
-| `make setup` | Clones Tribes at the pinned commit into `oracle/tribes/` (gitignored) and compiles it with our bridge |
+| `make setup` | Clones Tribes at the pinned commit into `oracle/tribes/` (gitignored) and compiles it with our bridge, plus a fog-of-war build copy |
 | `make build test` | Release and Debug+ASan/UBSan builds; all unit tests in both |
 | `make ci` | `test` plus clang-tidy (warnings are errors) |
 | `make difftest-init N=700` | Map-load difftest: N initial states, 2–8 players, all tribes, both modes |
+| `OBS=partial` (any of the three difftests) | Run it against the fog-of-war oracle build instead ([ADR-004](docs/adr/004-difftest-observability.md)) |
 | `make difftest N=140` | Whole-game replay difftest: every state and legal-action set (~40 MB of log per game) |
 | `make difftest-mindbender N=100` | The Mind Bender scenario (Heal others, Convert) |
 | `make oracle-equiv N=25` | Checks our logging driver plays exactly like stock Tribes (`Game.run`) |
@@ -180,7 +188,7 @@ Python 3.11+, and clang-tidy for `make ci`.
 
 ## Roadmap
 
-- **Finish Phase 1:** the fog-of-war difftest, then simulator throughput against Tribes.
+- **Finish Phase 1:** the agent's fog-filtered observation, then simulator throughput against Tribes.
 - **Phase 2–3:** search baselines, then action-level MCTS with heuristic priors and macro-actions, until it beats
   RHEA, with confidence intervals.
 - **Phase 4:** a policy/value network trained by self-play (GPU time to be budgeted first).

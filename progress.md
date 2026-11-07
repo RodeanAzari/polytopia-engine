@@ -33,13 +33,18 @@
 - 2026-11-07: Mind Bender (Heal others, Convert): `make difftest-mindbender N=100` → 100/100 games, 71,560 states,
   59,253 legal sets, 479 Converts + 226 Heals executed. Scenario = Philosophy for all at load (`SETUP` line) +
   our `MindBenderAgent` (bridge) vs Random. **Every Tribes action type is now implemented and difftested.**
+- 2026-11-07: Fog of war (partial obs, ADR-004): `make setup` builds a `tribes-po` copy (one constant flipped);
+  `OBS=partial` on all difftests. Map load 700/700; games 140/140 (800 meeting draws); Mind Bender 100/100.
+  Found: one-way port links (03a §6), meeting tech granted only if researchable (03b §1). In CI.
 - 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
 
-### Next (agreed order, 2026-11-06)
-1. CI `difftest` job written (`make setup`, `make difftest N=7`, `make difftest-mindbender N=3`; fresh-clone run
-   passes locally, ~3 CPU-min). **Not yet run on GitHub**: confirm on the first push.
-2. Oracle bridge: partial-obs build (`PLAY_WITH_FULL_OBS=false`, [ADR-004](docs/adr/004-difftest-observability.md));
-   canonical action format (action-encoding ADR); log compression (~40 MB per game).
+### Next (proposed 2026-11-07; Phase 1 DoD in docs/buildplan.md §11)
+1. Difftest at ≥ 1,000 games (DoD; 480 so far): logs are ~40 MB/game → generate, diff and delete in batches
+   (or compress) instead of keeping a corpus.
+2. Agent observation: the fog-filtered view search/training may use (03b §0, 04 §7), with tests that it hides
+   what it must. Needed before Phase 2.
+3. `make bench`: simulator vs. Tribes forward-model throughput (hardware recorded) + speed chart (media).
+4. Replay viewer (screenshot is Phase 1 media); action-encoding ADR.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
@@ -51,6 +56,7 @@
 - This Tribes commit includes **diplomacy** (wars, sending stars), a post-paper extension → include in the rule-facts sheet.
 
 ### Open items
+- CI difftest job: full + Mind Bender + partial obs; actions bumped to v5 (2026-11-07). Confirm green after push.
 - README.md written 2026-11-07 (§13.4 structure; dashes for unmeasured rows). Repo licence: MIT (user, 2026-11-07).
 - ruff isn't installed locally and CI has no Python step yet: `oracle/scripts/*.py` is unlinted. Add with `make setup` venv.
 - Permission email to the Tribes authors drafted (`docs/tribes-permission-request.md`); not yet sent.
