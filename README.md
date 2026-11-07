@@ -8,8 +8,8 @@ search, and a policy/value network trained by self-play.
 **Phase 1, the simulator, is under way, and its rules are verified against the reference.** Every rule is
 written from a facts-only rule sheet, then checked by replaying games logged from
 [Tribes](https://github.com/GAIGResearch/Tribes), the research framework's Java forward model, action by
-action, with and without fog of war. In **480 whole games, every one of 759,584 game states and every one of
-683,906 legal-action sets matches the oracle exactly**, covering every action type Tribes has. Search and learning come next; until they
+action, with and without fog of war. In **2,200 whole games, every one of 4,549,364 game states and every one of
+4,159,721 legal-action sets matches the oracle exactly**, covering every action type Tribes has. Search and learning come next; until they
 exist, every row below that needs them is a dash.
 
 Every number here links to the lab notebook or decision record where it was measured, with the command that
@@ -22,7 +22,7 @@ reproduces it. Dashes mean not measured yet.
 | | |
 |---|---|
 | **Game and rules source** | The Polytopia rules as implemented by Tribes (commit `270e7e5`): 12 tribes, 24 techs, 12 unit types, 19 buildings, ruins, diplomacy, Capitals and Score modes. Reimplemented from a written [rule-facts sheet](docs/rules/); Tribes has no licence, so none of its code is used ([ADR-002](docs/adr/002-rules-source.md)) |
-| **Differential test** | Zero mismatches, in both observability modes ([2026-11-06](docs/notebook/2026-11-06.md), [2026-11-07](docs/notebook/2026-11-07.md)). **Map load: 700/700** initial states each with and without fog (2–8 players, all 12 tribes, both game modes). **Full observability:** 140/140 games (303,641 states, 278,332 legal-action sets) and 100/100 Mind Bender scenario games (71,560 / 59,253). **Fog of war:** 140/140 games (312,052 / 286,254, including 800 random tech draws on meeting a tribe) and 100/100 Mind Bender games (72,331 / 60,067) |
+| **Differential test** | Zero mismatches, in both observability modes ([2026-11-06](docs/notebook/2026-11-06.md), [2026-11-07](docs/notebook/2026-11-07.md)). **Map load: 700/700** initial states each with and without fog (2–8 players, all 12 tribes, both game modes). **Full observability:** 1,000/1,000 games (2,173,391 states, 1,992,166 legal-action sets) and 100/100 Mind Bender scenario games (71,560 / 59,253). **Fog of war:** 1,000/1,000 games (2,232,082 / 2,048,235; the first 140 included 800 random tech draws on meeting a tribe) and 100/100 Mind Bender games (72,331 / 60,067) |
 | **Simulator speed vs. Tribes** | — (`make bench`, Phase 1) |
 | **State** | One trivially copyable value type, **32.7 KB**, ~1.1 µs per copy (i9-11950H, WSL2, g++ 15 -O3; [ADR-005](docs/adr/005-state-encoding.md)) |
 | **Search method** | — (action-level MCTS with macro-actions, Phase 3) |
@@ -168,6 +168,7 @@ Python 3.11+, and clang-tidy for `make ci`.
 | `OBS=partial` (any of the three difftests) | Run it against the fog-of-war oracle build instead ([ADR-004](docs/adr/004-difftest-observability.md)) |
 | `make difftest N=140` | Whole-game replay difftest: every state and legal-action set (~40 MB of log per game) |
 | `make difftest-mindbender N=100` | The Mind Bender scenario (Heal others, Convert) |
+| `make difftest-batched N=1000` | The same games as `make difftest N=1000`, generated, replayed and deleted 32 at a time (~40 min per mode, 16 threads) |
 | `make oracle-equiv N=25` | Checks our logging driver plays exactly like stock Tribes (`Game.run`) |
 | `make oracle-log` | One full oracle log (`LEVEL`, `SEED`, `MODE`, `PLAYERS`, `TRIBES`) |
 | `make bench`, `make tournament`, `make selfplay train`, `make plots` | Later phases; fail loudly until implemented |

@@ -36,15 +36,16 @@
 - 2026-11-07: Fog of war (partial obs, ADR-004): `make setup` builds a `tribes-po` copy (one constant flipped);
   `OBS=partial` on all difftests. Map load 700/700; games 140/140 (800 meeting draws); Mind Bender 100/100.
   Found: one-way port links (03a §6), meeting tech granted only if researchable (03b §1). In CI.
+- 2026-11-07: **Difftest at 1,000 games (DoD)**: `make difftest-batched N=1000` (generate/diff/delete 32 at a time)
+  → 1,000/1,000 full obs (2,173,391 states, 1,992,166 legal sets, 42 min) and 1,000/1,000 `OBS=partial`
+  (2,232,082 / 2,048,235, 38 min); i9-11950H 16 threads, WSL2. 0 failures.
 - 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
 
 ### Next (proposed 2026-11-07; Phase 1 DoD in docs/buildplan.md §11)
-1. Difftest at ≥ 1,000 games (DoD; 480 so far): logs are ~40 MB/game → generate, diff and delete in batches
-   (or compress) instead of keeping a corpus.
-2. Agent observation: the fog-filtered view search/training may use (03b §0, 04 §7), with tests that it hides
+1. Agent observation: the fog-filtered view search/training may use (03b §0, 04 §7), with tests that it hides
    what it must. Needed before Phase 2.
-3. `make bench`: simulator vs. Tribes forward-model throughput (hardware recorded) + speed chart (media).
-4. Replay viewer (screenshot is Phase 1 media); action-encoding ADR.
+2. `make bench`: simulator vs. Tribes forward-model throughput (hardware recorded) + speed chart (media).
+3. Replay viewer (screenshot is Phase 1 media); action-encoding ADR.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
@@ -56,7 +57,7 @@
 - This Tribes commit includes **diplomacy** (wars, sending stars), a post-paper extension → include in the rule-facts sheet.
 
 ### Open items
-- CI difftest job: full + Mind Bender + partial obs; actions bumped to v5 (2026-11-07). Confirm green after push.
+- CI difftest job: full + Mind Bender + partial obs, actions v5: green on GitHub (run 42408782685, 2026-11-07).
 - README.md written 2026-11-07 (§13.4 structure; dashes for unmeasured rows). Repo licence: MIT (user, 2026-11-07).
 - ruff isn't installed locally and CI has no Python step yet: `oracle/scripts/*.py` is unlinted. Add with `make setup` venv.
 - Permission email to the Tribes authors drafted (`docs/tribes-permission-request.md`); not yet sent.
