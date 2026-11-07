@@ -132,6 +132,7 @@ inline constexpr int kWhaleStars = 10;
 inline constexpr int kRoadCost = 2;
 inline constexpr int kVeteranKills = 3;
 inline constexpr int kVeteranPlusHp = 5;
+inline constexpr int kMindBenderHeal = 4;  // Heal others, per target (03b §7)
 inline constexpr int kForestClearStars = 2;
 inline constexpr int kForestGrowCost = 5;
 inline constexpr int kForestBurnCost = 5;

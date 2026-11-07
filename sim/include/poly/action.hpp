@@ -8,8 +8,6 @@
 
 namespace poly {
 
-// Only the types the simulator implements so far; more are added as the replay difftest reaches
-// them (progress.md).
 enum class ActionType : std::uint8_t {
     EndTurn,         // tribe
     ResearchTech,    // tribe, param = Tech
@@ -32,6 +30,8 @@ enum class ActionType : std::uint8_t {
     Disband,         // unit
     Upgrade,         // unit
     MakeVeteran,     // unit
+    HealOthers,      // unit
+    Convert,         // unit, target = target unit's actor id
 };
 
 struct Action {

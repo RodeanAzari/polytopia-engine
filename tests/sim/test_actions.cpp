@@ -148,6 +148,47 @@ TEST(LegalActions, LevelUpReplacesEverything) {
     EXPECT_EQ(all[1].param, static_cast<int>(poly::LevelUpBonus::Explorer));
 }
 
+// 03b §7: Convert targets another tribe's unit in range whose tile is visible. Full obs never hides
+// a tile, so only a hand-made fog bit exercises the check.
+TEST(LegalActions, ConvertNeedsAVisibleTarget) {
+    GameState s = two_tribes();
+    poly::start_turn(s, 0);
+    const Slot mb = capital_unit(s, 0);
+    s.units[mb].type = poly::UnitType::MindBender;
+    teleport(s, mb, 5, 5);
+    const Slot enemy = capital_unit(s, 1);
+    teleport(s, enemy, 5, 6);
+    const auto converts = of_type(s, ActionType::Convert);
+    ASSERT_EQ(converts.size(), 1U);
+    EXPECT_EQ(converts[0].actor, s.units[mb].id);
+    EXPECT_EQ(converts[0].target, s.units[enemy].id);
+    s.tribes[0].visible.reset(static_cast<std::size_t>(s.index(5, 6)));
+    EXPECT_TRUE(of_type(s, ActionType::Convert).empty());
+}
+
+// 03b §7 / 02 §1: Heal others needs a Mind Bender that can attack (Fresh only). A pushed Mind
+// Bender starts its turn Moved: it may not heal, though it is not Finished.
+TEST(LegalActions, HealOthersNeedsAFreshMindBender) {
+    GameState s = two_tribes();
+    poly::start_turn(s, 0);
+    const Slot mb = capital_unit(s, 0);
+    s.units[mb].type = poly::UnitType::MindBender;
+    teleport(s, mb, 5, 5);
+    poly::SampledChance chance(1);
+    poly::apply_action(s,
+                       {.type = ActionType::Spawn,
+                        .actor = s.cities[s.tribes[0].capital].id,
+                        .param = static_cast<std::uint8_t>(poly::UnitType::Warrior)},
+                       chance);
+    const Slot ally = s.unit_at[static_cast<std::size_t>(s.index(2, 2))];
+    ASSERT_NE(ally, poly::kNoSlot);
+    teleport(s, ally, 5, 6);
+    s.units[ally].hp = 3;  // below max
+    EXPECT_EQ(of_type(s, ActionType::HealOthers).size(), 1U);
+    s.units[mb].status = poly::TurnStatus::Moved;
+    EXPECT_TRUE(of_type(s, ActionType::HealOthers).empty());
+}
+
 TEST(LegalActions, NoneOnceTheGameIsOver) {
     GameState s = two_tribes();
     poly::start_turn(s, 0);

@@ -1242,6 +1242,83 @@ void disband(GameState& s, Slot u) {
     remove_unit(s, u);
 }
 
+// Every other unit in u's neighbourhood of radius = u's range, x-major then y (02 §2 scan order).
+template <typename F>
+void for_each_unit_in_range(const GameState& s, Slot u, const F& f) {
+    const Unit& unit = s.units[u];
+    const int r = kUnitRange[static_cast<std::size_t>(unit.type)];
+    for (int x = unit.x - r; x <= unit.x + r; ++x) {
+        for (int y = unit.y - r; y <= unit.y + r; ++y) {
+            const Slot t =
+                s.on_board(x, y) ? s.unit_at[static_cast<std::size_t>(s.index(x, y))] : kNoSlot;
+            if (t != kNoSlot && t != u) {
+                f(t);
+            }
+        }
+    }
+}
+
+// 03b §7: units of U's own tribe within U's range (centre excluded) that are below max HP.
+template <typename F>
+void for_each_heal_target(const GameState& s, Slot u, const F& f) {
+    for_each_unit_in_range(s, u, [&](Slot t) {
+        if (s.units[t].tribe == s.units[u].tribe && s.units[t].hp < s.units[t].max_hp) {
+            f(t);
+        }
+    });
+}
+
+bool heal_others_legal(const GameState& s, Slot u) {
+    const Unit& unit = s.units[u];
+    if (unit.type != UnitType::MindBender || !can_attack(unit)) {
+        return false;
+    }
+    bool any = false;
+    for_each_heal_target(s, u, [&](Slot) { any = true; });
+    return any;
+}
+
+void heal_others(GameState& s, Slot u) {
+    check(heal_others_legal(s, u), "heal others: illegal");
+    for_each_heal_target(s, u, [&](Slot t) {
+        Unit& target = s.units[t];
+        target.hp =
+            static_cast<std::int16_t>(std::min(target.hp + kMindBenderHeal, int{target.max_hp}));
+    });
+    s.units[u].status = status_after_attack(s.units[u]);
+}
+
+// 03b §7. Generation also requires another tribe's target (the executor alone does not).
+bool convert_legal(const GameState& s, Slot u, Slot t) {
+    const Unit& unit = s.units[u];
+    const Unit& target = s.units[t];
+    return unit.type == UnitType::MindBender && can_attack(unit) && target.tribe != unit.tribe &&
+           tribe(s, unit.tribe)
+               .visible.test(static_cast<std::size_t>(s.index(target.x, target.y))) &&
+           chebyshev_units(unit, target) <= kUnitRange[static_cast<std::size_t>(unit.type)];
+}
+
+// 03b §7: the target leaves its list and joins the active tribe as a tribe-owned unit; the
+// diplomacy repercussion hits (P, P) because the target's tribe is already P.
+void convert(GameState& s, Slot u, std::int32_t target_id) {
+    const Slot t = unit_by_id(s, target_id);
+    check(convert_legal(s, u, t), "convert: illegal");
+    Unit& target = s.units[t];
+    if (target.city != kNoSlot) {
+        s.cities[target.city].units.erase_value(t);
+    } else {
+        tribe(s, target.tribe).tribe_units.erase_value(t);
+    }
+    const int p = s.units[u].tribe;
+    target.tribe = static_cast<std::int16_t>(p);
+    target.city = kNoSlot;
+    tribe(s, s.active_tribe).tribe_units.push_back(t);
+    update_allegiance(s, kAttackRepercussion, p, p);
+    consequences(s, kAttackRepercussion, p, p);
+    s.units[u].status = status_after_attack(s.units[u]);
+    target.status = TurnStatus::Finished;
+}
+
 // Capitals mode (04 §8.2): the first tribe in id order, not lost, that owns every starting capital
 // is set to Win. Returns whether there is one.
 bool capitals_winner(GameState& s) {
@@ -1373,7 +1450,7 @@ void city_actions(const GameState& s, Slot c, ActionList& out) {
     }
 }
 
-// Unit u's actions in Tribes' factory order (04 §5); Convert and Heal others are not implemented.
+// Unit u's actions in Tribes' factory order (04 §5).
 void unit_actions(const GameState& s, Slot u, ActionList& out) {
     const Unit& unit = s.units[u];
     const auto simple = [&](ActionType type) { out.push_back({.type = type, .actor = unit.id}); };
@@ -1383,25 +1460,27 @@ void unit_actions(const GameState& s, Slot u, ActionList& out) {
     if (unit.status == TurnStatus::Finished) {
         return;
     }
-    const int range = kUnitRange[static_cast<std::size_t>(unit.type)];
-    for (int x = unit.x - range; x <= unit.x + range; ++x) {
-        for (int y = unit.y - range; y <= unit.y + range; ++y) {
-            const Slot t =
-                s.on_board(x, y) ? s.unit_at[static_cast<std::size_t>(s.index(x, y))] : kNoSlot;
-            if (t != kNoSlot && t != u && attack_legal(s, u, t)) {
-                out.push_back(
-                    {.type = ActionType::Attack, .actor = unit.id, .target = s.units[t].id});
-            }
+    for_each_unit_in_range(s, u, [&](Slot t) {
+        if (attack_legal(s, u, t)) {
+            out.push_back({.type = ActionType::Attack, .actor = unit.id, .target = s.units[t].id});
         }
-    }
+    });
     if (const auto target = capture_target(s, u)) {
         out.push_back({.type = ActionType::Capture, .actor = unit.id, .target = *target});
     }
+    for_each_unit_in_range(s, u, [&](Slot t) {
+        if (convert_legal(s, u, t)) {
+            out.push_back({.type = ActionType::Convert, .actor = unit.id, .target = s.units[t].id});
+        }
+    });
     if (disband_legal(s, u)) {
         simple(ActionType::Disband);
     }
     if (examine_legal(s, u)) {
         simple(ActionType::Examine);
+    }
+    if (heal_others_legal(s, u)) {
+        simple(ActionType::HealOthers);
     }
     if (make_veteran_legal(unit)) {
         simple(ActionType::MakeVeteran);
@@ -1633,7 +1712,9 @@ void apply_action(GameState& s, const Action& a, Chance& chance) {
         case ActionType::Capture:
         case ActionType::Attack:
         case ActionType::Upgrade:
-        case ActionType::MakeVeteran: {
+        case ActionType::MakeVeteran:
+        case ActionType::HealOthers:
+        case ActionType::Convert: {
             const Slot u = unit_by_id(s, a.actor);
             check(s.units[u].tribe == p, "unit action: not the active tribe's unit");
             if (a.type == ActionType::Recover) {
@@ -1650,6 +1731,10 @@ void apply_action(GameState& s, const Action& a, Chance& chance) {
                 upgrade(s, u);
             } else if (a.type == ActionType::MakeVeteran) {
                 make_veteran(s, u);
+            } else if (a.type == ActionType::HealOthers) {
+                heal_others(s, u);
+            } else if (a.type == ActionType::Convert) {
+                convert(s, u, a.target);
             } else {
                 move(s, u, a.x, a.y);
             }

@@ -187,6 +187,12 @@ std::optional<poly::Action> parse_unit_action(const Tokens& t) {
                             .actor = num(t, 3),
                             .target = t.at(6) == "CITY:" ? num(t, 7) : 0};
     }
+    if (kind == "HEAL") {  // HEAL by unit U
+        return poly::Action{.type = ActionType::HealOthers, .actor = num(t, 3)};
+    }
+    if (kind == "CONVERT") {  // CONVERT by unit U to unit T
+        return poly::Action{.type = ActionType::Convert, .actor = num(t, 3), .target = num(t, 6)};
+    }
     if (kind == "ATTACK") {  // ATTACK by unit U to unit T
         return poly::Action{.type = ActionType::Attack, .actor = num(t, 3), .target = num(t, 6)};
     }
@@ -267,12 +273,12 @@ class ReplayChance final : public poly::Chance {
 
 // Readable form of an action for mismatch reports (field dump, not Tribes' toString).
 std::string show(const poly::Action& a) {
-    static constexpr std::array<std::string_view, 21> kName = {
+    static constexpr std::array<std::string_view, 23> kName = {
         "END_TURN",          "RESEARCH_TECH", "DECLARE_WAR", "SEND_STARS",   "BUILD_ROAD",
         "RESOURCE_GATHERED", "LEVEL_UP",      "SPAWN",       "CLEAR_FOREST", "GROW_FOREST",
         "BURN_FOREST",       "BUILD",         "DESTROY",     "RECOVER",      "MOVE",
         "EXAMINE",           "CAPTURE",       "ATTACK",      "DISBAND",      "UPGRADE",
-        "MAKE_VETERAN"};
+        "MAKE_VETERAN",      "HEAL",          "CONVERT"};
     std::ostringstream os;
     os << kName.at(static_cast<std::size_t>(a.type)) << " actor " << a.actor << " target "
        << a.target << " at " << int{a.x} << ':' << int{a.y} << " param " << int{a.param}
@@ -322,6 +328,11 @@ class Replay {
             const int n = std::stoi(line.substr(6));
             for (int i = 0; i < n && std::getline(*in_, line); ++i) {
                 level_.push_back(line);
+            }
+        } else if (line.starts_with("SETUP ")) {
+            scenario_ = line.substr(6);
+            if (scenario_ != "mindbender") {
+                throw std::runtime_error("unknown scenario: " + scenario_);
             }
         } else if (line.starts_with("RAND ")) {
             draw(line);
@@ -475,6 +486,16 @@ class Replay {
         switch (pending_) {
             case Pending::Load:
                 s_ = poly::load_level(level_, mode_, obs_);
+                if (scenario_ ==
+                    "mindbender") {  // OracleDriver.applyScenario: techs only, no score
+                    for (int i = 0; i < s_.num_tribes; ++i) {
+                        for (const poly::Tech t : {poly::Tech::Climbing, poly::Tech::Meditation,
+                                                   poly::Tech::Philosophy}) {
+                            s_.tribes[static_cast<std::size_t>(i)].techs |=
+                                1U << static_cast<unsigned>(t);
+                        }
+                    }
+                }
                 event_ = "initial state";
                 break;
             case Pending::TurnStart:
@@ -526,6 +547,7 @@ class Replay {
     poly::GameMode mode_ = poly::GameMode::Capitals;
     poly::ObsMode obs_ = poly::ObsMode::Full;
     std::vector<std::string> level_;
+    std::string scenario_;  // SETUP line, applied right after map load
     poly::GameState s_{};
     poly::ActionList legal_;
     enum class Pending : std::uint8_t { Load, TurnStart, Action, TurnEnd, None };
