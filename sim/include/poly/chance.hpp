@@ -29,6 +29,9 @@ class Chance {
     virtual RuinBonus ruin_bonus(bool exclude_research) = 0;
     // Index into `count` candidate techs (enum order), uniform (03b §5, 03b §1).
     virtual int random_tech(int count) = 0;
+    // Partial obs: index into the `count` techs (enum order) a newly met tribe has and the meeting
+    // tribe lacks, uniform (03b §1).
+    virtual int meeting_tech(int count) = 0;
     // Index into the `count` clipped neighbours of the explorer's tile, uniform (03b §6).
     virtual int explorer_neighbour(int count) = 0;
     // Uniform random permutation of a city list, in place (03b §3).
@@ -49,6 +52,9 @@ class SampledChance final : public Chance {
         return static_cast<RuinBonus>(rng_.below(kNumRuinBonuses));
     }
     int random_tech(int count) override {
+        return static_cast<int>(rng_.below(static_cast<std::uint32_t>(count)));
+    }
+    int meeting_tech(int count) override {
         return static_cast<int>(rng_.below(static_cast<std::uint32_t>(count)));
     }
     int explorer_neighbour(int count) override {

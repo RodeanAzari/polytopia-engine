@@ -8,7 +8,10 @@ alternating Random / Rule Based agents (full logs are large: ~8 MB for 2 players
 --scenario=mindbender (with --full): every tribe starts with Philosophy; 2..4 players, our MindBender agent
 alternating with Random, level seeds from 200000 (OracleLog / MindBenderAgent.java).
 
-Usage: gen_init_corpus.py N OUT_DIR [--full] [--scenario=mindbender]   (repo root, after `make setup`)
+--partial: use the partial-obs oracle build (build/tribes-po, ADR-004) instead of stock Tribes.
+
+Usage: gen_init_corpus.py N OUT_DIR [--full] [--scenario=mindbender] [--partial]   (repo root, after
+`make setup`)
 """
 
 import os
@@ -18,10 +21,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 TRIBES = ["Xin Xi", "Imperius", "Bardur", "Oumaji", "Kickoo", "Hoodrick",
           "Luxidoor", "Vengir", "Zebasi", "Ai-Mo", "Quetzali", "Yadakk"]
-CP = "../../build/tribes:lib/json.jar"
 
 
-def job(k: int, out_dir: str, full: bool, extra: list[str]) -> None:
+def job(k: int, out_dir: str, full: bool, extra: list[str], cp: str) -> None:
     scenario = bool(extra)
     players = 2 + k % (3 if scenario else 7)
     tribes = [TRIBES[(k + 5 * i) % 12] for i in range(players)]  # 5 is coprime to 12: distinct
@@ -35,7 +37,7 @@ def job(k: int, out_dir: str, full: bool, extra: list[str]) -> None:
     args += extra
     path = os.path.join(out_dir, f"{'game' if full else 'init'}-{level_seed}.log")
     with open(path, "w", encoding="utf-8") as f:
-        subprocess.run(["java", "-cp", CP, "OracleLog", *args], cwd="oracle/tribes", stdout=f,
+        subprocess.run(["java", "-cp", cp, "OracleLog", *args], cwd="oracle/tribes", stdout=f,
                        stderr=subprocess.PIPE, check=True, timeout=600 if full else 120)
 
 
@@ -43,9 +45,11 @@ def main() -> int:
     n, out_dir = int(sys.argv[1]), sys.argv[2]
     full = "--full" in sys.argv[3:]
     extra = [a for a in sys.argv[3:] if a.startswith("--scenario=")]
+    build = "tribes-po" if "--partial" in sys.argv[3:] else "tribes"
+    cp = f"../../build/{build}:lib/json.jar"
     os.makedirs(out_dir, exist_ok=True)
     with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as ex:
-        list(ex.map(lambda k: job(k, out_dir, full, extra), range(n)))
+        list(ex.map(lambda k: job(k, out_dir, full, extra, cp), range(n)))
     print(f"{n} logs in {out_dir}")
     return 0
 

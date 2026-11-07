@@ -242,6 +242,7 @@ class ReplayChance final : public poly::Chance {
     }
     int random_tech(int count) override { return next("TechnologyTree.researchAtRandom", count); }
     int explorer_neighbour(int count) override { return next("Board.launchExplorer", count); }
+    int meeting_tech(int count) override { return next("Tribe.meetTribe", count); }
     // java.util.Collections.shuffle: for i = n .. 2, swap(i - 1, nextInt(i)).
     void shuffle_cities(std::span<std::uint16_t> cities) override {
         for (std::size_t i = cities.size(); i > 1; --i) {
@@ -485,7 +486,7 @@ class Replay {
         const Pending done = pending_;
         switch (pending_) {
             case Pending::Load:
-                s_ = poly::load_level(level_, mode_, obs_);
+                s_ = poly::load_level(level_, mode_, obs_, chance);
                 if (scenario_ ==
                     "mindbender") {  // OracleDriver.applyScenario: techs only, no score
                     for (int i = 0; i < s_.num_tribes; ++i) {

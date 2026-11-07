@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "poly/chance.hpp"
 #include "poly/inline_vector.hpp"
 #include "poly/types.hpp"
 
@@ -144,6 +145,13 @@ inline void unlock(TribeState& t, Building b) {
     }
 }
 
+// A tech is researchable iff not researched and its parent (if any) is (01).
+[[nodiscard]] bool researchable(const TribeState& t, Tech tech);
+
+// Marks tech researched; the "all researched" flag is re-checked only after a leaf tech (01 quirk).
+// No stars, score or Tower of Wisdom: those belong to the Research action.
+void mark_researched(TribeState& t, Tech tech);
+
 // Add population v to city c, crediting tribe p (03a §1): floor at -level; p's score and c's
 // points-worth move with the clamped change. p is not always c's owner (03a §6).
 void add_population(GameState& s, City& c, int p, int v);
@@ -157,8 +165,10 @@ Slot new_unit(GameState& s);
 // score/worth.
 void claim_tiles(GameState& s, Slot city, int radius);
 
-// Clear view for tribe P at (x, y), radius r (03b §1): reveal (+5 per newly visible tile) and
-// meetings. Full-obs mode only for now; partial obs needs the Chance interface (meeting tech draw).
-void clear_view(GameState& s, int tribe, int x, int y, int radius);
+// Clear view for tribe P at (x, y), radius r (03b §1): reveal (+5 per newly visible tile),
+// meetings (partial obs: a meeting tech draw from `chance`), then the Eye of God check (partial
+// obs). Returns whether a road or water tile was revealed; callers that Tribes has recompute P's
+// network then do so (moves, pushes, the explorer).
+[[nodiscard]] bool clear_view(GameState& s, int tribe, int x, int y, int radius, Chance& chance);
 
 }  // namespace poly

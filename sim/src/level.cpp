@@ -137,7 +137,7 @@ void add_tribes(GameState& s, const Grid& grid) {
 }
 
 // One capital, set up in the order of 05 §1.3.
-void add_capital(GameState& s, int tribe, int x, int y) {
+void add_capital(GameState& s, int tribe, int x, int y, Chance& chance) {
     TribeState& t = s.tribes[static_cast<std::size_t>(tribe)];
     const auto i = static_cast<std::size_t>(s.index(x, y));
 
@@ -155,7 +155,7 @@ void add_capital(GameState& s, int tribe, int x, int y) {
     }
     t.capital = cs;  // 3. add city: capital, city list, clear view r1, network flag
     t.cities.push_back(cs);
-    clear_view(s, tribe, x, y, 1);
+    (void)clear_view(s, tribe, x, y, 1, chance);  // new city: no recomputation (03b §1)
     s.network.set(i);
     t.score += kCityCentrePoints;  // 4.
 
@@ -179,7 +179,8 @@ void add_capital(GameState& s, int tribe, int x, int y) {
 
 }  // namespace
 
-GameState load_level(const std::vector<std::string>& lines, GameMode mode, ObsMode obs) {
+GameState load_level(const std::vector<std::string>& lines, GameMode mode, ObsMode obs,
+                     Chance& chance) {
     const Grid grid = parse_grid(lines);
     const auto n = static_cast<int>(grid.size());
 
@@ -194,7 +195,6 @@ GameState load_level(const std::vector<std::string>& lines, GameMode mode, ObsMo
     s.building.fill(Building::None);
 
     add_tribes(s, grid);
-    check(obs == ObsMode::Full, "partial-obs map load needs the Chance interface (not built yet)");
 
     // Pass 2: fill the board in row-major order.
     int next_tribe = 0;
@@ -203,7 +203,7 @@ GameState load_level(const std::vector<std::string>& lines, GameMode mode, ObsMo
             const Cell& c = grid[static_cast<std::size_t>(x)][static_cast<std::size_t>(y)];
             const Terrain terrain = parse_terrain(c.terrain);
             if (terrain == Terrain::City) {
-                add_capital(s, next_tribe++, x, y);
+                add_capital(s, next_tribe++, x, y, chance);
             } else {
                 const auto i = static_cast<std::size_t>(s.index(x, y));
                 s.terrain[i] = terrain;
@@ -215,7 +215,7 @@ GameState load_level(const std::vector<std::string>& lines, GameMode mode, ObsMo
     // Game start: clear view radius 2 around each tribe's first city, in tribe-id order (04 §1.1).
     for (int t = 0; t < s.num_tribes; ++t) {
         const City& c = s.cities[s.tribes[static_cast<std::size_t>(t)].cities[0]];
-        clear_view(s, t, c.x, c.y, 2);
+        (void)clear_view(s, t, c.x, c.y, 2, chance);  // GameState.init: no recomputation
     }
     return s;
 }

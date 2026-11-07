@@ -4,7 +4,7 @@ jobs:
   build-test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: sudo apt-get update && sudo apt-get install -y ninja-build clang-tidy
       - run: make ci
 
@@ -13,8 +13,8 @@ jobs:
   difftest:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -22,3 +22,4 @@ jobs:
       - run: make setup
       - run: make difftest N=7              # 2..8 players, both modes: every state + legal-action set
       - run: make difftest-mindbender N=3   # Heal others, Convert
+      - run: make difftest N=7 OBS=partial  # fog: reveals, meeting techs, network updates (ADR-004)

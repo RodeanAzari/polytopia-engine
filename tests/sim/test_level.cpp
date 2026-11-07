@@ -38,7 +38,8 @@ std::vector<std::string> level(int n,
 }
 
 GameState load(const std::vector<std::string>& lines) {
-    return poly::load_level(lines, poly::GameMode::Capitals, ObsMode::Full);
+    poly::SampledChance chance(1);  // full obs: never drawn
+    return poly::load_level(lines, poly::GameMode::Capitals, ObsMode::Full, chance);
 }
 
 const poly::City& capital(const GameState& s, int tribe) {

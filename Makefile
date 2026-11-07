@@ -14,6 +14,14 @@ setup:
 	mkdir -p build/tribes
 	javac -nowarn -encoding UTF-8 -cp oracle/tribes/lib/json.jar -d build/tribes \
 	  $$(find oracle/tribes/src oracle/bridge -name '*.java')
+	@# Partial-obs oracle (ADR-004): a build copy with only PLAY_WITH_FULL_OBS = false.
+	rm -rf build/tribes-po-src build/tribes-po && cp -r oracle/tribes/src build/tribes-po-src
+	@test "$$(grep -c 'PLAY_WITH_FULL_OBS = true;' build/tribes-po-src/core/Constants.java)" = 1 \
+	  || { echo "setup: PLAY_WITH_FULL_OBS line not found exactly once" >&2; exit 1; }
+	sed -i 's/PLAY_WITH_FULL_OBS = true;/PLAY_WITH_FULL_OBS = false;/' build/tribes-po-src/core/Constants.java
+	mkdir -p build/tribes-po
+	javac -nowarn -encoding UTF-8 -cp oracle/tribes/lib/json.jar -d build/tribes-po \
+	  $$(find build/tribes-po-src oracle/bridge -name '*.java')
 
 # Same fixed seeds twice -> identical output, or the oracle is useless for difftests.
 ORACLE_RUN := cd oracle/tribes && java -cp ../../build/tribes:lib/json.jar OracleRun
@@ -39,26 +47,34 @@ oracle-log:
 	cd oracle/tribes && java -cp ../../build/tribes:lib/json.jar OracleLog $(LEVEL) $(SEED) $(SEED) $(MODE) \
 	  "$(PLAYERS)" "$(TRIBES)" > ../../build/oracle-logs/game-$(LEVEL)-$(SEED)-$(MODE).log
 
+# OBS=partial runs the three difftests below against the partial-obs oracle build (ADR-004); logs go
+# to separate *-po directories.
+OBS ?= full
+PO := $(if $(filter partial,$(OBS)),-po,)
+OBSFLAG := $(if $(filter partial,$(OBS)),--partial,)
+
 # Map-load difftest: N oracle initial states (2..8 players, all tribes) vs. our loader + dump (05 §1).
 difftest-init: build
-	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/init
-	build/release/oracle_diff build/oracle-logs/init/*.log
+	rm -rf build/oracle-logs/init$(PO)
+	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/init$(PO) $(OBSFLAG)
+	build/release/oracle_diff build/oracle-logs/init$(PO)/*.log
 
 # Replay difftest: N whole oracle games (2..8 players, both modes, Random / Rule Based), replayed
 # action by action; every state, every legal-action set, the end tick and each tribe's result and
 # score must match.
 # Logs are ~40 MB per game (build/oracle-logs/full, regenerated each run).
 difftest: build
-	rm -rf build/oracle-logs/full
-	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/full --full
-	build/release/oracle_diff build/oracle-logs/full/*.log
+	rm -rf build/oracle-logs/full$(PO)
+	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/full$(PO) --full $(OBSFLAG)
+	build/release/oracle_diff build/oracle-logs/full$(PO)/*.log
 
 # Mind Bender scenario (Heal others, Convert never occur in normal games): every tribe starts with
 # Philosophy, our MindBender agent vs. Random, 2..4 players. ~5 MB per game.
 difftest-mindbender: build
-	rm -rf build/oracle-logs/mindbender
-	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/mindbender --full --scenario=mindbender
-	build/release/oracle_diff build/oracle-logs/mindbender/*.log
+	rm -rf build/oracle-logs/mindbender$(PO)
+	python3 oracle/scripts/gen_init_corpus.py $(N) build/oracle-logs/mindbender$(PO) --full \
+	  --scenario=mindbender $(OBSFLAG)
+	build/release/oracle_diff build/oracle-logs/mindbender$(PO)/*.log
 
 build:
 	cmake -S . -B build/release $(GEN) -DCMAKE_BUILD_TYPE=Release

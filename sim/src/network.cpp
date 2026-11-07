@@ -80,6 +80,9 @@ constexpr std::size_t kMaxPorts = 64;
 using PortLinks = std::array<std::array<bool, kMaxPorts>, kMaxPorts>;
 
 // Port links: shortest navigable water path of at most kPortTradeDistance steps (03a §6).
+// [Tribes quirk] Each pair is searched once, from the earlier port (row-major) to the later one, and
+// linked both ways if found: the destination must be navigable, the origin need not be, so a pair
+// whose later port is not navigable (e.g. not visible) is never linked.
 void link_ports(const GameState& s, const NetTiles& net, PortLinks& link,
                 std::array<std::int16_t, kMaxTiles>& dist) {
     const auto& ports = net.ports;
@@ -89,8 +92,8 @@ void link_ports(const GameState& s, const NetTiles& net, PortLinks& link,
             s, ports[a], kPortTradeDistance,
             [&](int n) { return net.navigable.test(static_cast<std::size_t>(n)); },
             [](int, const auto&) {}, dist);
-        for (std::size_t b = 0; b < ports.size(); ++b) {
-            if (a != b && dist[ports[b]] >= 0) {
+        for (std::size_t b = a + 1; b < ports.size(); ++b) {
+            if (dist[ports[b]] >= 0) {
                 link[a][b] = true;
                 link[b][a] = true;
             }

@@ -76,7 +76,9 @@ GameState two_tribes(const std::vector<std::pair<std::pair<int, int>, std::strin
     auto cells = extra;
     cells.push_back({{2, 2}, "c:" + std::to_string(kXinXi)});
     cells.push_back({{8, 8}, "c:" + std::to_string(kBardur)});
-    return poly::load_level(level(11, cells), poly::GameMode::Capitals, poly::ObsMode::Full);
+    poly::SampledChance chance(1);  // full obs: never drawn
+    return poly::load_level(level(11, cells), poly::GameMode::Capitals, poly::ObsMode::Full,
+                            chance);
 }
 
 // 03b §8: Build road needs the tile visible to the tribe. Under full obs every tile is visible, so

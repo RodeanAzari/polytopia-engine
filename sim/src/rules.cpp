@@ -67,11 +67,6 @@ bool is_temple(Building b) {
            b == Building::MountainTemple;
 }
 
-bool is_leaf(Tech tech) {
-    return std::ranges::none_of(kTechParent,
-                                [&](const std::optional<Tech>& p) { return p == tech; });
-}
-
 // P's units in Tribes' list order: city units (city list order), then tribe-owned units. Units in
 // no list (03b §4) are skipped.
 template <typename S, typename F>
@@ -140,8 +135,9 @@ Slot replace_unit(GameState& s, Slot u, UnitType type, UnitType carried) {
 }
 
 // Places unit u on (x, y) and clears its tribe's view around it: radius 2 on a mountain or for a
-// Battleship, else 1 (02 §3 step 1).
-void place_unit(GameState& s, Slot u, int x, int y) {
+// Battleship, else 1 (02 §3 step 1). A revealed road or water tile recomputes that tribe's network
+// (Tribes' Board.moveUnit; partial obs only in effect).
+void place_unit(GameState& s, Slot u, int x, int y, Chance& chance) {
     Unit& unit = s.units[u];
     s.unit_at[static_cast<std::size_t>(s.index(unit.x, unit.y))] = kNoSlot;
     s.unit_at[static_cast<std::size_t>(s.index(x, y))] = u;
@@ -149,7 +145,9 @@ void place_unit(GameState& s, Slot u, int x, int y) {
     unit.y = static_cast<std::uint8_t>(y);
     const Terrain t = s.terrain[static_cast<std::size_t>(s.index(x, y))];
     const int radius = (t == Terrain::Mountain || unit.type == UnitType::Battleship) ? 2 : 1;
-    clear_view(s, unit.tribe, x, y, radius);
+    if (clear_view(s, unit.tribe, x, y, radius, chance)) {
+        recompute_network_tribe(s, unit.tribe);
+    }
 }
 
 // A killed unit (failed push): removed, its owner loses the unit's points (02 §4).
@@ -159,7 +157,7 @@ void kill_unit(GameState& s, Slot u) {
 }
 
 // 02 §4 target rule for a push from the unit's tile to (x, y).
-bool try_push(GameState& s, Slot u, int x, int y) {
+bool try_push(GameState& s, Slot u, int x, int y, Chance& chance) {
     const auto i = static_cast<std::size_t>(s.index(x, y));
     Unit& unit = s.units[u];
     if (s.unit_at[i] != kNoSlot) {
@@ -170,7 +168,7 @@ bool try_push(GameState& s, Slot u, int x, int y) {
         if (!tribe(s, unit.tribe).has_tech(Tech::Climbing)) {
             return false;
         }
-        place_unit(s, u, x, y);
+        place_unit(s, u, x, y, chance);
         return true;
     }
     if (t == Terrain::ShallowWater || t == Terrain::DeepWater) {
@@ -188,13 +186,13 @@ bool try_push(GameState& s, Slot u, int x, int y) {
         }
         return false;
     }
-    place_unit(s, u, x, y);
+    place_unit(s, u, x, y, chance);
     return true;
 }
 
 // Push (02 §4): tries the fixed offset order; the unit (if it was not replaced) becomes Pushed.
 // If no target works, the unit is killed.
-void push(GameState& s, Slot u) {
+void push(GameState& s, Slot u, Chance& chance) {
     constexpr std::array<std::array<int, 2>, 8> kOffsets = {
         {{0, 1}, {-1, 0}, {0, -1}, {1, 0}, {-1, 1}, {-1, -1}, {1, -1}, {1, 1}}};
     const int x0 = s.units[u].x;
@@ -202,7 +200,7 @@ void push(GameState& s, Slot u) {
     const std::int32_t id = s.units[u].id;
     bool pushed = false;
     for (const auto& [dx, dy] : kOffsets) {
-        if (s.on_board(x0 + dx, y0 + dy) && try_push(s, u, x0 + dx, y0 + dy)) {
+        if (s.on_board(x0 + dx, y0 + dy) && try_push(s, u, x0 + dx, y0 + dy, chance)) {
             pushed = true;
             break;
         }
@@ -252,7 +250,7 @@ bool traversable(const GameState& s, const TribeState& t, int x, int y) {
     }
 }
 
-// Explorer walk (03b §6). Full obs: clearing view reveals nothing, so no network recomputation.
+// Explorer walk (03b §6).
 void explore(GameState& s, int p, int x, int y, Chance& chance) {
     constexpr int kSteps = 15;
     constexpr int kTries = 45;
@@ -272,24 +270,13 @@ void explore(GameState& s, int p, int x, int y, Chance& chance) {
             if (traversable(s, t, tx, ty)) {
                 x = tx;
                 y = ty;
-                clear_view(s, p, x, y, 1);
+                if (clear_view(s, p, x, y, 1, chance)) {  // 03b §6: this tribe only
+                    recompute_network_tribe(s, p);
+                }
                 break;
             }
         }
     }
-}
-
-// "All researched" re-check (01 quirk: only after a leaf tech).
-void mark_researched(TribeState& t, Tech tech) {
-    t.techs |= 1U << static_cast<unsigned>(tech);
-    if (is_leaf(tech)) {
-        t.all_researched = t.techs == (1U << kNumTechs) - 1;
-    }
-}
-
-[[nodiscard]] bool researchable(const TribeState& t, Tech tech) {
-    const auto parent = kTechParent[static_cast<std::size_t>(tech)];
-    return !t.has_tech(tech) && (!parent || t.has_tech(*parent));
 }
 
 // ---- diplomacy (04 §6.2) ----
@@ -477,7 +464,7 @@ void level_up(GameState& s, Slot c, LevelUpBonus b, Chance& chance) {
         case LevelUpBonus::SuperUnit: {
             const Slot occupant = s.unit_at[static_cast<std::size_t>(s.index(city.x, city.y))];
             if (occupant != kNoSlot) {
-                push(s, occupant);
+                push(s, occupant, chance);
             }
             create_unit(s, city.tribe, c, UnitType::SuperUnit, city.x, city.y, UnitType::Warrior);
             break;
@@ -866,7 +853,7 @@ void recover(GameState& s, Slot u) {
     unit.status = TurnStatus::Finished;
 }
 
-void move(GameState& s, Slot u, int x, int y) {
+void move(GameState& s, Slot u, int x, int y, Chance& chance) {
     Unit& unit = s.units[u];
     check(can_move(unit) && s.on_board(x, y), "move: unit cannot move");
     MoveTargets targets;
@@ -875,7 +862,7 @@ void move(GameState& s, Slot u, int x, int y) {
     const std::span<const std::uint16_t> reachable(targets.tiles.data(),
                                                    static_cast<std::size_t>(targets.count));
     check(std::ranges::find(reachable, dest) != reachable.end(), "move: destination not reachable");
-    place_unit(s, u, x, y);
+    place_unit(s, u, x, y, chance);
     const Terrain t = s.terrain[dest];
     const bool water = t == Terrain::ShallowWater || t == Terrain::DeepWater;
     if (is_naval(unit.type) && !water) {
@@ -909,7 +896,7 @@ void examine(GameState& s, Slot u, Chance& chance) {
         case RuinBonus::SuperUnit: {
             const bool water =
                 s.terrain[i] == Terrain::ShallowWater || s.terrain[i] == Terrain::DeepWater;
-            push(s, u);
+            push(s, u, chance);
             const Slot n =
                 create_unit(s, p, kNoSlot, water ? UnitType::Battleship : UnitType::SuperUnit, x, y,
                             UnitType::Warrior);
@@ -1079,7 +1066,7 @@ void capture_village(GameState& s, Slot u, Chance& chance) {
     city.x = static_cast<std::uint8_t>(x);
     city.y = static_cast<std::uint8_t>(y);
     tribe(s, p).cities.push_back(c);
-    clear_view(s, p, x, y, 1);
+    (void)clear_view(s, p, x, y, 1, chance);  // 03b §1: no recomputation requested here
     set_network(s, x, y, true);
     claim_tiles(s, c, city.border_radius);
     s.terrain[i] = Terrain::City;
@@ -1151,7 +1138,7 @@ bool attack_legal(const GameState& s, Slot au, Slot tu) {
 }
 
 // 02 §2, in Tribes' operation order (hp / maxHp first, then x stat).
-void attack(GameState& s, Slot au, std::int32_t target_id) {
+void attack(GameState& s, Slot au, std::int32_t target_id, Chance& chance) {
     const Slot tu = unit_by_id(s, target_id);
     Unit& a = s.units[au];
     Unit& t = s.units[tu];
@@ -1209,7 +1196,7 @@ void attack(GameState& s, Slot au, std::int32_t target_id) {
             case UnitType::Warrior:
             case UnitType::Knight:
             case UnitType::SuperUnit:
-                try_push(s, au, tx, ty);  // advance; status unchanged
+                try_push(s, au, tx, ty, chance);  // advance; status unchanged
                 break;
             default:
                 break;
@@ -1726,7 +1713,7 @@ void apply_action(GameState& s, const Action& a, Chance& chance) {
             } else if (a.type == ActionType::Capture) {
                 capture(s, u, a.target, chance);
             } else if (a.type == ActionType::Attack) {
-                attack(s, u, a.target);
+                attack(s, u, a.target, chance);
             } else if (a.type == ActionType::Upgrade) {
                 upgrade(s, u);
             } else if (a.type == ActionType::MakeVeteran) {
@@ -1736,7 +1723,7 @@ void apply_action(GameState& s, const Action& a, Chance& chance) {
             } else if (a.type == ActionType::Convert) {
                 convert(s, u, a.target);
             } else {
-                move(s, u, a.x, a.y);
+                move(s, u, a.x, a.y, chance);
             }
             break;
         }
