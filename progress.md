@@ -46,7 +46,7 @@
 
 - 2026-11-08: `make bench` (random playouts, same levels, same loop): **5.3–6.3× faster than Tribes** (median of
   3 runs/config, range 4.4–7.2×; i9-11950H, WSL2). Absolute rates noisy (±50% run to run): quote ratio + ranges.
-  Chart `docs/media/2026-11-08-sim-speed.png` + sidecar; awaiting user confirmation of the capture.
+  Chart `docs/media/2026-11-08-sim-speed.png` + sidecar; capture confirmed by the user 2026-11-08.
 
 ### Next (Phase 1 DoD in docs/buildplan.md §11)
 1. Replay viewer (screenshot is Phase 1 media); action-encoding ADR.
