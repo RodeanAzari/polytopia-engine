@@ -23,8 +23,8 @@ baseline round-robin table.
 2. ADR-007 evaluation protocol (round-robin, seat swaps, fixed seeds, Wilson CIs, SPRT for engine changes).
 3. Agent facts sheet (`docs/agents/`): Tribes' Diff heuristic (read: 5·production + 4·techs + 0.1·score +
    4·cities + 2·units + 3·kills + 2·city levels, as deltas vs. the root state, own minus mean of others, plus own
-   connected cities and visible tiles), MCTS, RHEA, Rule Based. Ask the user first whether ADR-002's facts-only
-   rule extends to agents (amendment), then reimplement in C++ (`search/`) and `make tournament` on our sim.
+   connected cities and visible tiles), MCTS, RHEA, Rule Based, facts-only per the ADR-002
+   amendment of 2026-11-08 (user-approved); then reimplement in C++ (`search/`) and `make tournament` on our sim.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
