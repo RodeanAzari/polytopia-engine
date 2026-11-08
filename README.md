@@ -37,7 +37,7 @@ reproduces it. Dashes mean not measured yet.
 
 | Phase | State |
 |---|---|
-| 1 — Simulator | **In progress**: rule-facts sheet done; map load, every action type and legal-action generation bit-exact, with and without fog. the agent's fog-filtered observation matches Tribes' at every decision. Speed benchmarked against Tribes (5–6× faster). Remaining: replay viewer |
+| 1 — Simulator | **In progress**: rule-facts sheet done; map load, every action type and legal-action generation bit-exact, with and without fog. the agent's fog-filtered observation matches Tribes' at every decision. Speed benchmarked against Tribes (5–6× faster); replay viewer. Remaining: action-encoding decision |
 | 2 — Search baselines | Not started |
 | 3 — Action-level MCTS + heuristic priors | Not started |
 | 4 — Learned policy/value network | Not started (needs GPU time) |
@@ -120,6 +120,11 @@ Matching Tribes exactly means matching its bugs; each is recorded in the sheet a
 Phase 1 results so far are the difftest and speed rows above.
 
 ![Random-playout speed, our simulator vs. Tribes](docs/media/2026-11-08-sim-speed.png)
+
+**Replay viewer** (`make replay`, [details](docs/media/2026-11-08-replay-viewer.md)): a recorded 4-tribe game with
+fog of war, random players; left the true state, right the same moment as the tribe to move sees it.
+
+<img src="docs/media/2026-11-08-replay-viewer.png" width="49%" alt="Replay viewer, true state"> <img src="docs/media/2026-11-08-replay-viewer-fog.png" width="49%" alt="Replay viewer, one tribe's fog-of-war view">
  Win rates will be reported with game counts and 95 % Wilson
 confidence intervals, agent versions, seeds and hardware; engine changes will be accepted by SPRT.
 
@@ -178,6 +183,7 @@ Python 3.11+, and clang-tidy for `make ci`.
 | `make oracle-log` | One full oracle log (`LEVEL`, `SEED`, `MODE`, `PLAYERS`, `TRIBES`) |
 | `make bench N=200` | Speed vs. Tribes: random playouts on the same levels, 2/4/8 players × both modes → `data/results/bench-*.{csv,md}` |
 | `make plots` | Speed chart from every bench run in `data/results/` (median, min–max) |
+| `make replay [OBS=partial]` | Records one random game (`REPLAY_PLAYERS`, `REPLAY_MODE`, `REPLAY_SEED`) to `build/replays/`; open `tools/viewer/index.html` and choose the file |
 | `make tournament`, `make selfplay train` | Later phases; fail loudly until implemented |
 
 ## Repository layout
@@ -186,6 +192,7 @@ Python 3.11+, and clang-tidy for `make ci`.
 |---|---|
 | `sim/` | The simulator: state, map load, rules and action generation, movement, trade network, state dump |
 | `tools/oracle_diff.cpp` | The replay difftest driver |
+| `tools/bench.cpp`, `tools/record.cpp`, `tools/viewer/` | Speed benchmark, game recorder and the replay viewer (one HTML file) |
 | `oracle/bridge/` | Our Java harness around Tribes: seeded runs, the logging driver, the Mind Bender scenario agent |
 | `oracle/scripts/` | Corpus generation and the loop-equivalence check |
 | `tests/sim/` | GoogleTest unit tests |
@@ -196,7 +203,7 @@ Python 3.11+, and clang-tidy for `make ci`.
 
 ## Roadmap
 
-- **Finish Phase 1:** simulator throughput against Tribes, a replay viewer, the action-encoding decision.
+- **Finish Phase 1:** the action-encoding decision.
 - **Phase 2–3:** search baselines, then action-level MCTS with heuristic priors and macro-actions, until it beats
   RHEA, with confidence intervals.
 - **Phase 4:** a policy/value network trained by self-play (GPU time to be budgeted first).

@@ -48,8 +48,12 @@
   3 runs/config, range 4.4–7.2×; i9-11950H, WSL2). Absolute rates noisy (±50% run to run): quote ratio + ranges.
   Chart `docs/media/2026-11-08-sim-speed.png` + sidecar; capture confirmed by the user 2026-11-08.
 
+- 2026-11-08: Replay viewer: `make replay [OBS=partial]` records a random game (`tools/record.cpp`, poly-replay-1
+  JSON), `tools/viewer/index.html` plays it (fog "view as" a tribe, PNG export). Screenshots
+  `docs/media/2026-11-08-replay-viewer{,-fog}.png` + sidecar; awaiting user confirmation of the captures.
+
 ### Next (Phase 1 DoD in docs/buildplan.md §11)
-1. Replay viewer (screenshot is Phase 1 media); action-encoding ADR.
+1. After capture confirmation: tick the Phase 1 media item. Action-encoding ADR (required before Phase 2 search).
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
