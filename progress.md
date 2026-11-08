@@ -20,8 +20,8 @@ baseline round-robin table.
   Paper pattern: RHEA > RB > MCTS > MC ≈ OSLA ≫ Random.
 
 ### Next
-1. Decide (user): where the 500-games-per-pair replication runs (Tribes ≈ 100 h CPU for the 10 search/RB pairs,
-   or on our C++ sim once agents are reimplemented, with the 50/pair Tribes run as the cross-check).
+1. **Decided (user, 2026-11-08):** the 500-games-per-pair paper replication runs on our C++ sim once the agents
+   are reimplemented; the 50/pair Tribes run (`tribes-rr-20261108`) is the cross-check that ours match Tribes'.
 2. ADR-007 evaluation protocol (round-robin, seat swaps, fixed seeds, Wilson CIs, SPRT for engine changes).
 3. Agent facts sheet (`docs/agents/`): Tribes' Diff heuristic (read: 5·production + 4·techs + 0.1·score +
    4·cities + 2·units + 3·kills + 2·city levels, as deltas vs. the root state, own minus mean of others, plus own
