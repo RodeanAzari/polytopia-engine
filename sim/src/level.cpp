@@ -39,7 +39,7 @@ std::vector<Cell> split_line(std::string_view line) {
 }
 
 Terrain parse_terrain(char ch) {
-    for (std::size_t i = 0; i < kTerrainChar.size(); ++i) {
+    for (std::size_t i = 0; i < static_cast<std::size_t>(Terrain::Fog); ++i) {
         if (kTerrainChar[i] == ch) {
             return static_cast<Terrain>(i);
         }

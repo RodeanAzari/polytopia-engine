@@ -14,6 +14,9 @@
 //     <action> is Tribes' toString, except RESOURCE_GATHERED gets " at <x> : <y>" appended (its
 //     toString omits the tile, so two gatherable tiles of one resource would be indistinguishable)
 //   STATE ... END                                  full native state (see dumpState)
+//   OBS ... END                                    the copy the agent is given (gs.copy(id)), same schema,
+//                                                  logged before each decision; other tribes' city and
+//                                                  extra-unit lists sorted (the copy fills them in HashMap order)
 //   GAMEEND <tick>, then RESULT <tribeId> <result> <score> per tribe in id order
 package core.game;
 
@@ -213,7 +216,9 @@ public final class OracleDriver {
             if (continueTurn) {
                 if (dumpStates) dumpActions(gs, out);
                 ect.setMaxTimeMillis(remaining);
-                action = ag.act(gs.copy(id), ect);
+                GameState obs = gs.copy(id);
+                if (dumpStates) dumpState(obs, "OBS", id, out);
+                action = ag.act(obs, ect);
                 remaining = ect.remainingTimeMillis();
                 continueTurn = !gs.isTurnEnding() && gs.existAvailableActions(tribe);
             } else {
@@ -277,11 +282,23 @@ public final class OracleDriver {
     }
 
     static void dumpState(GameState gs, PrintStream out) {
+        dumpState(gs, "STATE", -1, out);
+    }
+
+    private static List<Integer> sortedIf(boolean sort, List<Integer> ids) {
+        if (!sort) return ids;
+        List<Integer> s = new ArrayList<>(ids);
+        java.util.Collections.sort(s);
+        return s;
+    }
+
+    // observer >= 0: an agent's copy; tribes other than the observer get sorted city/extra-unit lists.
+    static void dumpState(GameState gs, String header, int observer, PrintStream out) {
         Board b = gs.getBoard();
         int size = b.getSize();
         Tribe[] tt = gs.getTribes();
         StringBuilder s = new StringBuilder();
-        s.append("STATE tick=").append(gs.getTick())
+        s.append(header).append(" tick=").append(gs.getTick())
          .append(" active=").append(b.getActiveTribeID())
          .append(" over=").append(gs.isGameOver() ? 1 : 0)
          .append(" mustEnd=").append(gs.isTurnEnding() ? 1 : 0)
@@ -298,7 +315,8 @@ public final class OracleDriver {
                 for (int y = 0; y < size; ++y) {
                     s.append(' ');
                     switch (k) {
-                        case 0: s.append(b.getTerrainAt(x, y).getMapChar()); break;
+                        case 0: { Types.TERRAIN tr = b.getTerrainAt(x, y);  // FOG's map char is ' '
+                                  s.append(tr == Types.TERRAIN.FOG ? '#' : tr.getMapChar()); break; }
                         case 1: { Types.RESOURCE r = b.getResourceAt(x, y); s.append(r == null ? '-' : r.getMapChar()); break; }
                         case 2: { Types.BUILDING bd = b.getBuildingAt(x, y); s.append(bd == null ? "-" : bd.name()); break; }
                         case 3: s.append(b.getUnitIDAt(x, y)); break;
@@ -320,7 +338,8 @@ public final class OracleDriver {
             s.append("TRIBE ").append(t.getTribeId()).append(' ').append(t.getType())
              .append(" stars=").append(t.getStars()).append(" score=").append(t.getScore())
              .append(" result=").append(t.getWinner()).append(" capital=").append(t.getCapitalID())
-             .append(" cities=").append(t.getCitiesID()).append(" extraUnits=").append(t.getExtraUnits())
+             .append(" cities=").append(sortedIf(observer >= 0 && t.getTribeId() != observer, t.getCitiesID()))
+             .append(" extraUnits=").append(sortedIf(observer >= 0 && t.getTribeId() != observer, t.getExtraUnits()))
              .append(" met=").append(t.getTribesMet()).append(" connected=").append(t.getConnectedCities())
              .append(" tech=").append(techs).append(" allTech=").append(tech.isEverythingResearched() ? 1 : 0)
              .append(" kills=").append(t.getnKills()).append(" pacifist=").append(t.getnPacifistCount())

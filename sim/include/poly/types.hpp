@@ -19,9 +19,11 @@ enum class Terrain : std::uint8_t {
     Mountain,
     Village,
     City,
-    Forest
+    Forest,
+    Fog  // observations only (04 §7): a tile the observer can't see; never in a level or a game
 };
-inline constexpr std::array<char, 7> kTerrainChar = {'.', 's', 'd', 'm', 'v', 'c', 'f'};
+// Fog is '#' in our dumps (Tribes' own map char for it is ' ').
+inline constexpr std::array<char, 8> kTerrainChar = {'.', 's', 'd', 'm', 'v', 'c', 'f', '#'};
 
 enum class Resource : std::uint8_t { Fish, Fruit, Animal, Whales, Ore, Crops, Ruins, None };
 inline constexpr std::array<char, 7> kResourceChar = {'h', 'f', 'a', 'w', 'o', 'c', 'r'};
