@@ -20,6 +20,9 @@ target_include_directories(poly_sim PUBLIC sim/include)
 add_executable(oracle_diff tools/oracle_diff.cpp)
 target_link_libraries(oracle_diff PRIVATE poly_sim)
 
+add_executable(bench tools/bench.cpp)
+target_link_libraries(bench PRIVATE poly_sim)
+
 include(FetchContent)
 FetchContent_Declare(googletest
     URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz

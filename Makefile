@@ -11,6 +11,7 @@ setup:
 	@if [ ! -d oracle/tribes ]; then git clone -q $(TRIBES_REPO) oracle/tribes; fi
 	git -C oracle/tribes checkout -q $(TRIBES_COMMIT)
 	@echo "Tribes pinned at $(TRIBES_COMMIT)"
+	python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt
 	mkdir -p build/tribes
 	javac -nowarn -encoding UTF-8 -cp oracle/tribes/lib/json.jar -d build/tribes \
 	  $$(find oracle/tribes/src oracle/bridge -name '*.java')
@@ -82,6 +83,17 @@ BATCH ?= 32
 difftest-batched: build
 	python3 oracle/scripts/difftest_batched.py $(N) build/oracle-logs/batched$(PO) --batch=$(BATCH) $(OBSFLAG)
 
+# Simulator speed vs. Tribes' forward model (Phase 1 DoD): uniform-random playouts on the same levels,
+# N games per side for 2/4/8 players x Capitals/Score -> data/results/bench-<stamp>.{csv,md}.
+bench: build
+	python3 oracle/scripts/bench.py $(N)
+
+# Media from the newest bench run (docs/buildplan.md §13.2: dated names; the sidecar .md is written by hand).
+BENCH_CSV ?= $(lastword $(sort $(wildcard data/results/bench-*.csv)))
+plots:
+	@test -n "$(BENCH_CSV)" || { echo "plots: no data/results/bench-*.csv; run make bench" >&2; exit 1; }
+	.venv/bin/python tools/plot_bench.py $(BENCH_CSV) docs/media/$(shell date +%F)-sim-speed.png
+
 build:
 	cmake -S . -B build/release $(GEN) -DCMAKE_BUILD_TYPE=Release
 	cmake --build build/release -j$(JOBS)
@@ -103,5 +115,5 @@ ci: test tidy
 clean:
 	rm -rf build
 
-bench tournament selfplay train plots:
+tournament selfplay train:
 	@echo "make $@: not implemented yet" >&2; exit 1
