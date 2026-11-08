@@ -155,8 +155,23 @@ city shows level, population needed, capital flag, walls, border radius, buildin
 production 0 and no unit list; such a unit shows no home city and 0 kills. Visible foreign actors are listed
 in their tribe's city list / tribe-owned units of the copy.
 
-[Sim note] Our observation type must expose exactly this set (no more) for agents to be comparable with Tribes
-agents, and to keep the "no peeking" rule honest.
+Details of the copy [Tribes quirks, read from its copy code; the OBS difftest (2026-11-07) agrees wherever its
+games reach them, and the dump sorts foreign lists, so the order point is from the code only]:
+- **Points-worth is not copied** for any city, own cities included: it is 0 in every agent's copy.
+- A fogged tile's city id is 0 (Java's int default), not the native "no city" −1; its unit id is 0 as usual.
+- A visible foreign city keeps its **whole building list**, including buildings on tiles the observer can't see,
+  with temple levels and counters.
+- Visible foreign actors are appended to their tribe's lists in actor-map (HashMap) order, not id order.
+- The actor-id counter is copied, so an agent can tell how many actors have ever been created.
+- Tiles owned by a foreign city on a hidden tile still show that city's id (the city itself is absent), and every
+  tribe's capital id stays visible.
+
+[Sim note] `poly::observe` (`sim/include/poly/observation.hpp`, ADR-005 §2) builds exactly this copy; the replay
+difftest compares it with Tribes' copy before every decision, in both modes. A foreign city on a hidden tile is
+kept as a ghost (id only, tribe −1) so that capital ids and tile owners still name it. **Legal actions must come
+from the true state** (Tribes' agents receive action lists computed on it): generated from the observation they
+differ in 1,905 of 30,019 decisions of 16 partial-obs games (e.g. a move into fog onto a hidden enemy unit; forest
+clearing on an own city tile still in fog).
 
 ## 8. Game end
 

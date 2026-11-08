@@ -54,6 +54,11 @@ Facts this depends on (rule-facts sheet 01–05):
   (Phase 3, ADR on hidden information) can turn an observation into a sampled `GameState`. The type system
   enforces "no peeking". The property test "observation never leaks hidden tiles" tests `observe`.
 - The full-obs mode is the same code with nothing hidden in the fog layer (04: tech/star masking still applies).
+- *Outcome (2026-11-07):* implemented as `poly::Observation` (only `observe` constructs it; `view()` gives the
+  masked `GameState`). It mirrors Tribes' agent copy exactly, quirks included (04 §7: e.g. points-worth 0), and
+  is difftested against that copy before every decision. A foreign city on a hidden tile stays as a ghost slot
+  (id, tribe −1) because capital ids and visible tiles' owners refer to it. Legal actions are not derivable from
+  an observation (04 §7), so agents receive them from the environment, as in Tribes.
 
 ### 3. `Chance`: semantic random outcomes, passed explicitly
 Every rule that needs randomness calls an explicitly passed `Chance&` with a **semantic** request, never a raw

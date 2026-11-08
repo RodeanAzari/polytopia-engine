@@ -9,7 +9,7 @@ search, and a policy/value network trained by self-play.
 written from a facts-only rule sheet, then checked by replaying games logged from
 [Tribes](https://github.com/GAIGResearch/Tribes), the research framework's Java forward model, action by
 action, with and without fog of war. In **2,200 whole games, every one of 4,549,364 game states and every one of
-4,159,721 legal-action sets matches the oracle exactly**, covering every action type Tribes has. Search and learning come next; until they
+4,159,721 legal-action sets matches the oracle exactly**, covering every action type Tribes has, and so does what each agent is allowed to see under fog. Search and learning come next; until they
 exist, every row below that needs them is a dash.
 
 Every number here links to the lab notebook or decision record where it was measured, with the command that
@@ -30,14 +30,14 @@ reproduces it. Dashes mean not measured yet.
 | **Win rate vs. all Tribes agents** | — |
 | **Network and training compute** | — (Phase 4) |
 | **Human results** | — (Phase 5) |
-| **Tests** | 35 GoogleTest unit tests, Release and Debug with ASan/UBSan; every difftest also run under the sanitizers on a subset |
+| **Tests** | 40 GoogleTest unit tests, Release and Debug with ASan/UBSan; every difftest also run under the sanitizers on a subset |
 | **CI** | Build, unit tests, clang-tidy and sanitizers; a short replay difftest against Tribes, with and without fog, on every push |
 
 ## Status
 
 | Phase | State |
 |---|---|
-| 1 — Simulator | **In progress**: rule-facts sheet done; map load, every action type and legal-action generation bit-exact, with and without fog. Remaining: the agent's observation (the fog-filtered view search will use), throughput benchmark |
+| 1 — Simulator | **In progress**: rule-facts sheet done; map load, every action type and legal-action generation bit-exact, with and without fog. the agent's fog-filtered observation matches Tribes' at every decision. Remaining: throughput benchmark, replay viewer |
 | 2 — Search baselines | Not started |
 | 3 — Action-level MCTS + heuristic priors | Not started |
 | 4 — Learned policy/value network | Not started (needs GPU time) |
@@ -76,9 +76,9 @@ Dashed: not built yet.
   from the sheet.
 - **Differential replay.** A small Java bridge (ours) drives Tribes with every seed fixed and logs everything:
   the level, each draw on the game RNG and who drew it, the legal-action set before each decision, the action
-  taken, and the full state after it. `oracle_diff` loads the level, replays each action, feeds Tribes' logged
-  random outcomes back in through the `Chance` interface, and compares **every state field and every legal-action
-  set**. A random draw requested for a different reason or range fails the game at that point.
+  taken, the full state after it, and the filtered copy the agent was given. `oracle_diff` loads the level, replays each action, feeds Tribes' logged
+  random outcomes back in through the `Chance` interface, and compares **every state field, every legal-action
+  set and every agent observation**. A random draw requested for a different reason or range fails the game at that point.
 - **Targeted scenarios** for rules normal games never reach. Heal others and Convert never occurred in 140
   normal games (one Mind Bender was spawned in all of them), so `make difftest-mindbender` starts every tribe with Philosophy and seats a small agent of ours
   that seeks those actions: 479 Converts and 226 Heals in 100 games, all matching.
@@ -129,8 +129,9 @@ confidence intervals, agent versions, seeds and hardware; engine changes will be
   path is checked against a local build with only that constant flipped
   ([ADR-004](docs/adr/004-difftest-observability.md)), a configuration Tribes doesn't use by default. Where it
   behaves oddly we still match it, and record the quirk.
-- **No agent observation yet.** The rules run with fog, but the filtered view an agent sees (what search and
-  training may use) is not built; nothing searches yet, so nothing can peek.
+- **Observations mirror Tribes' quirks.** An agent's view is Tribes' own agent copy, field for field, including
+  its oddities (every city's score value shows as 0; [04 §7](docs/rules/04-turns-diplomacy-end.md)). Legal actions
+  can't be derived from it (6% of fog decisions differ), so agents get them from the game, as in Tribes.
 - **Tribes' search agents are not reproducible run to run** (an unseeded RNG inside `GameState.copy()`), so games
   against them are reproducible only statistically. Difftests replay logged actions and are unaffected.
 - **No speed number yet.** The simulator's throughput against Tribes has not been measured.
@@ -166,7 +167,7 @@ Python 3.11+, and clang-tidy for `make ci`.
 | `make ci` | `test` plus clang-tidy (warnings are errors) |
 | `make difftest-init N=700` | Map-load difftest: N initial states, 2–8 players, all tribes, both modes |
 | `OBS=partial` (any of the three difftests) | Run it against the fog-of-war oracle build instead ([ADR-004](docs/adr/004-difftest-observability.md)) |
-| `make difftest N=140` | Whole-game replay difftest: every state and legal-action set (~40 MB of log per game) |
+| `make difftest N=140` | Whole-game replay difftest: every state, legal-action set and agent observation (~65 MB of log per game) |
 | `make difftest-mindbender N=100` | The Mind Bender scenario (Heal others, Convert) |
 | `make difftest-batched N=1000` | The same games as `make difftest N=1000`, generated, replayed and deleted 32 at a time (~40 min per mode, 16 threads) |
 | `make oracle-equiv N=25` | Checks our logging driver plays exactly like stock Tribes (`Game.run`) |
@@ -189,7 +190,7 @@ Python 3.11+, and clang-tidy for `make ci`.
 
 ## Roadmap
 
-- **Finish Phase 1:** the agent's fog-filtered observation, then simulator throughput against Tribes.
+- **Finish Phase 1:** simulator throughput against Tribes, a replay viewer, the action-encoding decision.
 - **Phase 2–3:** search baselines, then action-level MCTS with heuristic priors and macro-actions, until it beats
   RHEA, with confidence intervals.
 - **Phase 4:** a policy/value network trained by self-play (GPU time to be budgeted first).

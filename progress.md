@@ -39,13 +39,14 @@
 - 2026-11-07: **Difftest at 1,000 games (DoD)**: `make difftest-batched N=1000` (generate/diff/delete 32 at a time)
   → 1,000/1,000 full obs (2,173,391 states, 1,992,166 legal sets, 42 min) and 1,000/1,000 `OBS=partial`
   (2,232,082 / 2,048,235, 38 min); i9-11950H 16 threads, WSL2. 0 failures.
+- 2026-11-07: Agent observation (`poly::Observation`, ADR-005 §2 outcome, 04 §7): the bridge logs Tribes' agent
+  copy (`OBS`) before every decision; all 480 corpus games match (683,906 observations). Legal actions must come
+  from the true state (6.3% of fog decisions differ when generated from the observation).
 - 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
 
 ### Next (proposed 2026-11-07; Phase 1 DoD in docs/buildplan.md §11)
-1. Agent observation: the fog-filtered view search/training may use (03b §0, 04 §7), with tests that it hides
-   what it must. Needed before Phase 2.
-2. `make bench`: simulator vs. Tribes forward-model throughput (hardware recorded) + speed chart (media).
-3. Replay viewer (screenshot is Phase 1 media); action-encoding ADR.
+1. `make bench`: simulator vs. Tribes forward-model throughput (hardware recorded) + speed chart (media).
+2. Replay viewer (screenshot is Phase 1 media); action-encoding ADR.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
