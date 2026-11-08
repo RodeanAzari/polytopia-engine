@@ -17,8 +17,8 @@ import sys
 import time
 from pathlib import Path
 
-SUMMARY = re.compile(r"(\d+) logs: (\d+) replayed to the end, (\d+) failures, (\d+) states and (\d+) "
-                     r"legal-action sets matched")
+SUMMARY = re.compile(r"(\d+) logs: (\d+) replayed to the end, (\d+) failures, (\d+) states, (\d+) "
+                     r"legal-action sets and (\d+) observations matched")
 FAILED_LOG = re.compile(r"^(?:MISMATCH|ERROR) (\S+?):?(?: |$)", re.M)
 
 
@@ -33,7 +33,7 @@ def main() -> int:
     work, failed = out / "batch", out / "failed"
     shutil.rmtree(out, ignore_errors=True)
     failed.mkdir(parents=True)
-    totals = {"games": 0, "complete": 0, "failures": 0, "states": 0, "legal": 0}
+    totals = {"games": 0, "complete": 0, "failures": 0, "states": 0, "legal": 0, "obs": 0}
     t0 = time.time()
     for first in range(start, start + n, batch):
         size = min(batch, start + n - first)
@@ -46,10 +46,11 @@ def main() -> int:
         if m is None:
             print(r.stdout + r.stderr, file=sys.stderr)
             raise RuntimeError(f"oracle_diff gave no summary for seeds {first}..{first + size - 1}")
-        games, complete, failures, states, legal = map(int, m.groups())
+        games, complete, failures, states, legal, obs = map(int, m.groups())
         stopped = games - complete - failures  # stopped at an unimplemented action type
-        for name in ("games", "complete", "states", "legal"):
-            totals[name] += {"games": games, "complete": complete, "states": states, "legal": legal}[name]
+        for name, v in (("games", games), ("complete", complete), ("states", states), ("legal", legal),
+                        ("obs", obs)):
+            totals[name] += v
         totals["failures"] += failures + stopped
         for path in FAILED_LOG.findall(r.stderr):
             shutil.copy(path, failed)
@@ -59,11 +60,13 @@ def main() -> int:
             sys.stderr.write(r.stdout)
         print(f"seeds {first}..{first + size - 1}: {complete}/{games} matched; total "
               f"{totals['complete']}/{totals['games']}, {totals['states']:,} states, "
-              f"{totals['legal']:,} legal sets, {totals['failures']} failures, {time.time() - t0:.0f} s",
+              f"{totals['legal']:,} legal sets, {totals['obs']:,} observations, {totals['failures']} failures, "
+              f"{time.time() - t0:.0f} s",
               flush=True)
     shutil.rmtree(work, ignore_errors=True)
     print(f"{totals['games']} games: {totals['complete']} replayed to the end, {totals['failures']} failures, "
-          f"{totals['states']:,} states and {totals['legal']:,} legal-action sets matched")
+          f"{totals['states']:,} states, {totals['legal']:,} legal-action sets and {totals['obs']:,} observations "
+          "matched")
     return 0 if totals["failures"] == 0 and totals["complete"] == totals["games"] else 1
 
 

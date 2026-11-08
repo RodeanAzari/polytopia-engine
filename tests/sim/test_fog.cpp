@@ -2,6 +2,8 @@
 // checks these against Tribes in whole games; these cover what its corpus doesn't reach (found by
 // bug injection): road reveals, clear-view order, the explorer's network update, Eye of God, and a
 // meeting draw that grants nothing. Expected values come from the rule sheet, not from our code.
+// The Observation tests (04 §7) cover what the difftest's OBS text can't show: no slot left
+// pointing at a hidden actor, and observations that don't change when only hidden information does.
 
 #include <gtest/gtest.h>
 
@@ -11,8 +13,10 @@
 #include <vector>
 
 #include "poly/chance.hpp"
+#include "poly/dump.hpp"
 #include "poly/level.hpp"
 #include "poly/network.hpp"
+#include "poly/observation.hpp"
 #include "poly/rules.hpp"
 
 namespace {
@@ -204,6 +208,116 @@ TEST(Fog, ExplorerRevealUpdatesTheNetwork) {
                        chance);
     EXPECT_TRUE(s.tribes[0].visible.test(tile(s, 2, 4)));
     EXPECT_TRUE(s.tribes[0].connected.contains(second));
+}
+
+// 04 §7: a tile the observer can't see shows fog and nothing else.
+TEST(Observation, FogTilesHoldNothing) {
+    GameState s = load({{{1, 1}, "c:0"}, {{9, 9}, "c:2"}, {{8, 8}, "d:w"}});
+    s.network.set(tile(s, 8, 8));
+    ASSERT_NE(s.unit_at[tile(s, 9, 9)], poly::kNoSlot);
+    const poly::Observation obs = poly::observe(s, 0);
+    const GameState& o = obs.view();
+    const auto bare_fog = [&](std::size_t i) {
+        return o.terrain[i] == poly::Terrain::Fog && o.resource[i] == poly::Resource::None &&
+               o.building[i] == poly::Building::None && o.unit_at[i] == poly::kNoSlot &&
+               o.city_owner[i] == poly::kNoSlot && !o.network.test(i);
+    };
+    int fog = 0;
+    for (std::size_t i = 0; i < 121; ++i) {
+        if (!s.tribes[0].visible.test(i)) {
+            ++fog;
+            EXPECT_TRUE(bare_fog(i)) << "tile " << i;
+        }
+    }
+    EXPECT_EQ(fog, 121 - 16);
+}
+
+// 04 §7: a hidden enemy unit is gone; a hidden enemy capital is a ghost that keeps only its id
+// (tribe 1's capital id stays visible), not even its position or level.
+TEST(Observation, HiddenActors) {
+    GameState s = load({{{1, 1}, "c:0"}, {{9, 9}, "c:2"}});
+    const Slot cap = s.tribes[1].capital;
+    s.cities[cap].level = 3;
+    const poly::Observation obs = poly::observe(s, 0);
+    const GameState& o = obs.view();
+    EXPECT_EQ(o.units[capital_unit(s, 1)].id, 0);
+    EXPECT_EQ(o.tribes[1].capital, cap);
+    EXPECT_EQ(o.cities[cap].id, s.cities[cap].id);
+    EXPECT_EQ(o.cities[cap].tribe, -1);
+    EXPECT_EQ(o.cities[cap].x + o.cities[cap].y, 0);
+    EXPECT_EQ(o.cities[cap].level, 1);
+    EXPECT_TRUE(o.tribes[1].cities.empty());
+}
+
+// 04 §7: crops need Organization, ore Climbing, whales Fishing: the observer's techs, not the
+// owner's.
+TEST(Observation, ResourcesNeedTheObserversTech) {
+    GameState s =
+        load({{{1, 1}, "c:0"}, {{9, 9}, "c:2"}, {{0, 2}, ".:c"}, {{2, 0}, "m:o"}, {{3, 3}, "d:w"}});
+    s.tribes[0].techs = 0;
+    s.tribes[1].techs = ~0U;
+    const std::array<std::pair<int, int>, 3> at = {{{0, 2}, {2, 0}, {3, 3}}};
+    for (const auto& [x, y] : at) {
+        EXPECT_EQ(poly::observe(s, 0).view().resource[tile(s, x, y)], poly::Resource::None);
+    }
+    grant(s.tribes[0], poly::Tech::Organization);
+    grant(s.tribes[0], poly::Tech::Climbing);
+    grant(s.tribes[0], poly::Tech::Fishing);
+    const poly::Observation obs = poly::observe(s, 0);
+    const GameState& o = obs.view();
+    EXPECT_EQ(o.resource[tile(s, 0, 2)], poly::Resource::Crops);
+    EXPECT_EQ(o.resource[tile(s, 2, 0)], poly::Resource::Ore);
+    EXPECT_EQ(o.resource[tile(s, 3, 3)], poly::Resource::Whales);
+}
+
+// 04 §7: a visible enemy unit is listed among its tribe's units, with no home city and no kills.
+TEST(Observation, VisibleEnemyUnit) {
+    GameState s = load({{{1, 1}, "c:0"}, {{9, 9}, "c:2"}});
+    const Slot u = capital_unit(s, 1);
+    teleport(s, u, 2, 2);
+    s.units[u].kills = 2;
+    const poly::Observation obs = poly::observe(s, 0);
+    const GameState& o = obs.view();
+    ASSERT_EQ(o.tribes[1].tribe_units.size(), 1U);
+    EXPECT_EQ(o.tribes[1].tribe_units[0], u);
+    EXPECT_EQ(o.units[u].city, poly::kNoSlot);
+    EXPECT_EQ(o.units[u].kills, 0);
+    EXPECT_EQ(o.units[u].hp, s.units[u].hp);
+    EXPECT_EQ(o.unit_at[tile(s, 2, 2)], u);
+}
+
+// No peeking (CLAUDE.md): two states that differ only in what 04 §7 hides give the same
+// observation, compared as the OBS text and as the raw tile-to-actor slots the rules read.
+TEST(Observation, HiddenInformationDoesNotChangeIt) {
+    GameState a = load({{{1, 1}, "c:0"}, {{9, 9}, "c:2"}, {{7, 7}, "m"}});
+    const Slot u = capital_unit(a, 1);
+    teleport(a, u, 9, 8);
+    GameState b = a;
+    poly::TribeState& t = b.tribes[1];
+    t.stars += 7;
+    t.kills = 3;
+    t.pacifist_count = 2;
+    grant(t, poly::Tech::Sailing);
+    poly::monument(t, poly::Building::EyeOfGod) = poly::MonumentStatus::Available;
+    poly::City& cap = b.cities[t.capital];
+    cap.population += 1;
+    cap.production_bonus += 1;
+    cap.level += 1;
+    cap.points_worth += 50;
+    b.cities[b.tribes[0].capital].points_worth += 50;  // not carried for own cities either
+    teleport(b, u, 8, 8);                              // a hidden unit moves inside the fog
+    b.terrain[tile(b, 7, 7)] = poly::Terrain::Plain;   // hidden terrain changes
+
+    const auto same = [](const GameState& x, const GameState& y) {
+        const poly::Observation ox = poly::observe(x, 0);
+        const poly::Observation oy = poly::observe(y, 0);
+        return poly::dump_observation(ox) == poly::dump_observation(oy) &&
+               ox.view().unit_at == oy.view().unit_at &&
+               ox.view().city_owner == oy.view().city_owner;
+    };
+    EXPECT_TRUE(same(a, b));
+    b.tribes[1].score += 1;  // visible: the comparison can tell
+    EXPECT_FALSE(same(a, b));
 }
 
 }  // namespace

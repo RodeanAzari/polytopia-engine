@@ -24,6 +24,7 @@
 
 #include "poly/dump.hpp"
 #include "poly/level.hpp"
+#include "poly/observation.hpp"
 #include "poly/rules.hpp"
 
 namespace {
@@ -296,6 +297,7 @@ struct Outcome {
     bool failed = false;
     int states = 0;          // states compared and equal
     int action_sets = 0;     // legal-action sets compared and equal
+    int observations = 0;    // agent observations compared and equal
     std::string stopped_at;  // first unimplemented action type, if any
     std::string detail;      // where and how the first mismatch happened
 };
@@ -343,6 +345,8 @@ class Replay {
             return act(line.substr(4));
         } else if (line.starts_with("STATE ")) {
             out_.failed = !state(line);
+        } else if (line.starts_with("OBS ")) {
+            out_.failed = !observation(line);
         } else if (line.starts_with("ACTIONS ")) {
             return actions(std::stoi(line.substr(8)));
         } else if (line.starts_with("GAMEEND ")) {
@@ -522,11 +526,32 @@ class Replay {
         }
     }
 
-    bool state(std::string block) {
+    void read_block(std::string& block) {
         std::string line;
         while (block.substr(block.rfind('\n') + 1) != "END" && std::getline(*in_, line)) {
             block += '\n' + line;
         }
+    }
+
+    // The copy the active tribe's agent is given, in the state just dumped (04 §7).
+    bool observation(std::string block) {
+        read_block(block);
+        const int p = s_.active_tribe;
+        const std::string ours = poly::dump_observation(poly::observe(s_, p));
+        if (ours != block) {
+            std::ostringstream os;
+            os << "  observation of tribe " << p << ", " << event_ << " (state " << out_.states
+               << ")\n";
+            report_diff(os, block, ours);
+            out_.detail = os.str();
+            return false;
+        }
+        ++out_.observations;
+        return true;
+    }
+
+    bool state(std::string block) {
+        read_block(block);
         run_pending();
         loaded_ = true;
         const std::string ours = poly::dump_state(s_);
@@ -577,6 +602,7 @@ int main(int argc, char** argv) {
     int complete = 0;
     long long states = 0;
     long long action_sets = 0;
+    long long observations = 0;
     std::map<std::string, int> stops;
     for (const std::string& path : paths) {
         try {
@@ -587,6 +613,7 @@ int main(int argc, char** argv) {
             const Outcome r = Replay(in).run();
             states += r.states;
             action_sets += r.action_sets;
+            observations += r.observations;
             if (r.failed) {
                 ++failures;
                 std::cerr << "MISMATCH " << path << '\n' << r.detail;
@@ -601,8 +628,8 @@ int main(int argc, char** argv) {
         }
     }
     std::cout << paths.size() << " logs: " << complete << " replayed to the end, " << failures
-              << " failures, " << states << " states and " << action_sets
-              << " legal-action sets matched\n";
+              << " failures, " << states << " states, " << action_sets << " legal-action sets and "
+              << observations << " observations matched\n";
     for (const auto& [type, n] : stops) {
         std::cout << "  stopped at unimplemented " << type << ": " << n << '\n';
     }

@@ -28,8 +28,10 @@ std::string name(std::string_view v) { return std::string(v); }
 
 class Dumper {
    public:
-    explicit Dumper(const GameState& s)
-        : s_(&s), tiles_(static_cast<std::size_t>(s.side) * static_cast<std::size_t>(s.side)) {
+    explicit Dumper(const GameState& s, int observer = -1)
+        : s_(&s),
+          observer_(observer),
+          tiles_(static_cast<std::size_t>(s.side) * static_cast<std::size_t>(s.side)) {
         o_.reserve((tiles_ * 16) + 4096);
     }
 
@@ -51,10 +53,10 @@ class Dumper {
     }
 
     void header() {
-        o_ += "STATE tick=" + str(s_->tick) + " active=" + str(s_->active_tribe) +
-              " over=" + bit(s_->game_over) + " mustEnd=" + bit(s_->turn_must_end) +
-              " levelingUp=" + bit(s_->leveling_up) + " nextActorId=" + str(s_->next_actor_id) +
-              " canEnd=";
+        o_ += (observer_ >= 0 ? "OBS" : "STATE") + std::string(" tick=") + str(s_->tick) +
+              " active=" + str(s_->active_tribe) + " over=" + bit(s_->game_over) +
+              " mustEnd=" + bit(s_->turn_must_end) + " levelingUp=" + bit(s_->leveling_up) +
+              " nextActorId=" + str(s_->next_actor_id) + " canEnd=";
         for (int t = 0; t < s_->num_tribes; ++t) {
             o_ += bit(((s_->can_end_turn >> t) & 1U) != 0);
         }
@@ -85,20 +87,25 @@ class Dumper {
                                       : name(kBuildingName[static_cast<std::size_t>(b)]);
         });
         tile_row("unit", [&](std::size_t i) { o_ += str(unit_id(s_->unit_at[i])); });
-        tile_row("cityTile", [&](std::size_t i) { o_ += str(city_id(s_->city_owner[i])); });
+        tile_row("cityTile", [&](std::size_t i) {
+            o_ += s_->terrain[i] == Terrain::Fog ? "0" : str(city_id(s_->city_owner[i]));
+        });
         tile_row("network", [&](std::size_t i) { o_ += bit(s_->network.test(i)); });
     }
 
     void tribe(int id) {
         const auto ti = static_cast<std::size_t>(id);
         const TribeState& t = s_->tribes[ti];
+        const bool hidden = observer_ >= 0 && id != observer_;
         o_ += "TRIBE " + str(id) + ' ' + name(kTribeName[static_cast<std::size_t>(t.type)]) +
               " stars=" + str(t.stars) + " score=" + str(t.score) +
               " result=" + name(kResultName[static_cast<std::size_t>(t.result)]) +
               " capital=" + str(city_id(t.capital)) + " cities=";
-        list(o_, t.cities, [&](Slot c) { return str(city_id(c)); });
+        list(o_, ids(t.cities, hidden, [&](Slot c) { return city_id(c); }),
+             [](std::int32_t v) { return str(v); });
         o_ += " extraUnits=";
-        list(o_, t.tribe_units, [&](Slot u) { return str(unit_id(u)); });
+        list(o_, ids(t.tribe_units, hidden, [&](Slot u) { return unit_id(u); }),
+             [](std::int32_t v) { return str(v); });
         o_ += " met=";
         list(o_, t.met, [](std::int8_t m) { return str(m); });
         o_ += " connected=";
@@ -113,7 +120,8 @@ class Dumper {
             " declaredWarTurn=" + bit(t.declared_war_this_turn) + " wars=" + str(t.wars_declared) +
             " starsSentTotal=" + str(t.stars_sent_total) + " monuments={";
         // Monument names in enum order are also alphabetical, matching the oracle's sorted map.
-        for (std::size_t m = 0; m < kNumMonuments; ++m) {
+        const std::size_t shown = hidden ? 0 : kNumMonuments;  // the copy's map is empty
+        for (std::size_t m = 0; m < shown; ++m) {
             o_ += (m > 0 ? ", " : "") + name(kBuildingName[kFirstMonument + m]) + '=' +
                   name(kMonumentStatusName[static_cast<std::size_t>(t.monuments[m])]);
         }
@@ -176,7 +184,7 @@ class Dumper {
         };
         std::vector<Entry> all;
         for (std::size_t i = 0; i < s_->cities.size(); ++i) {
-            if (s_->cities[i].id != 0) {
+            if (s_->cities[i].id != 0 && s_->cities[i].tribe >= 0) {  // tribe -1: ghost
                 all.push_back({.id = s_->cities[i].id, .is_city = true, .slot = i});
             }
         }
@@ -195,7 +203,22 @@ class Dumper {
         }
     }
 
+    // Actor ids of a list, sorted if `sort`.
+    template <typename List, typename F>
+    static std::vector<std::int32_t> ids(const List& l, bool sort, const F& id) {
+        std::vector<std::int32_t> v;
+        v.reserve(l.size());
+        for (const Slot x : l) {
+            v.push_back(id(x));
+        }
+        if (sort) {
+            std::ranges::sort(v);
+        }
+        return v;
+    }
+
     const GameState* s_;
+    int observer_;
     std::size_t tiles_;
     std::string o_;
 };
@@ -203,5 +226,9 @@ class Dumper {
 }  // namespace
 
 std::string dump_state(const GameState& s) { return Dumper(s).run(); }
+
+std::string dump_observation(const Observation& obs) {
+    return Dumper(obs.view(), obs.observer()).run();
+}
 
 }  // namespace poly
