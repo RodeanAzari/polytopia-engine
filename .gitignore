@@ -7,3 +7,6 @@ oracle/tribes/
 data/results/*
 !data/results/.gitkeep
 *:Zone.Identifier
+
+# Third-party papers kept for reference only (not ours to redistribute)
+docs/refs/
