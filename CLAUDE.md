@@ -14,8 +14,8 @@ Full spec, prior art, phase checklists, out-of-scope list and portfolio delivera
 
 | Phase | Status | Key result |
 |---|---|---|
-| 1 — Simulator | IN PROGRESS | Rule-facts sheet 01–05; map-load difftest 700/700; all action types; replay difftest incl. legal-action sets, full + partial obs: 1,000/1,000 games each (+ 200 Mind Bender); agent observation matches Tribes' copy; 5–6× Tribes' speed; replay viewer; action encoding (ADR-006). Checklist complete, awaiting sign-off |
-| 2 — Search baselines | NOT STARTED | — |
+| 1 — Simulator | DONE (2026-11-08) | Rule-facts sheet 01–05; map-load difftest 700/700; all action types; replay difftest incl. legal-action sets, full + partial obs: 1,000/1,000 games each (+ 200 Mind Bender); agent observation matches Tribes' copy; 5–6× Tribes' speed; replay viewer; action encoding (ADR-006) |
+| 2 — Search baselines | IN PROGRESS | — |
 | 3 — Action-level MCTS + heuristic priors | NOT STARTED | — |
 | 4 — Learned policy/value network | NOT STARTED | — |
 | 5 — Evaluation | NOT STARTED | — |

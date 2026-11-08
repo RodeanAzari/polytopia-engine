@@ -1,64 +1,17 @@
 # Progress
 
-## Current: Phase 1 — Simulator (IN PROGRESS)
+## Phase 1 — Simulator: DONE (closed by the user 2026-11-08)
+Rule-facts sheet 01–05; C++ simulator bit-exact vs. Tribes (1,000/1,000 replayed games per obs mode, + Mind
+Bender scenario); agent observation = Tribes' agent copy; `make bench` 5.3–6.3× Tribes; replay viewer; action
+encoding (ADR-006). Detail: README, `docs/notebook/2026-11-0[5-8].md`, ADR-001…006.
 
-### Done
-- 2026-11-05: Licence check. Tribes has no licence → facts-only reimplementation, Tribes as a local
-  oracle only ([ADR-002](docs/adr/002-rules-source.md)). Language: C++20 ([ADR-001](docs/adr/001-language-cpp20.md)).
-- 2026-11-05: Repo scaffold: CMake + GoogleTest, Release + Debug/ASan/UBSan, clang-tidy, CI workflow.
-  Seeded RNG (`sim/include/poly/rng.hpp`), 5/5 tests pass in both builds.
-- 2026-11-05: Tribes cloned at `270e7e5` into `oracle/tribes/` (gitignored) via `make setup`.
-
-- 2026-11-05: Java 17 + Ninja installed. Tribes compiles; our headless bridge `oracle/bridge/OracleRun.java`
-  runs a game with all seeds fixed; `make oracle-smoke` confirms byte-identical output across runs.
-
-- 2026-11-05: Rule-facts sheet section 1 (`docs/rules/01-constants.md`): all static tables + 3 Tribes quirks.
-- 2026-11-05: Section 2 (`docs/rules/02-combat-movement.md`): turn status, attack, movement, pushes.
-- 2026-11-05: Section 3a (`docs/rules/03a-cities-economy.md`): city growth, buildings, city actions, monuments, trade network.
-- 2026-11-05: Section 3b (`docs/rules/03b-capture-ruins-roads.md`): capture, ruins, explorer, borders, roads,
-  other unit actions. Two 03a errors fixed (city-tile radius, network scope). Tribes builds with no fog →
-  difftest both obs modes ([ADR-004](docs/adr/004-difftest-observability.md)).
-- 2026-11-05: Section 4 (`docs/rules/04-turns-diplomacy-end.md`): turn flow, action generation order, diplomacy,
-  agent observation, game end + ranking. All earlier `[TBD]`s resolved; tick count and send-stars bound probed on the oracle.
-- 2026-11-06: Section 5 (`docs/rules/05-map-generation.md`): map load (bit-exact) + generator (distribution).
-  Rule-facts sheet complete. Fixed 03b §11: Luxidoor's capital starts at level 3 with walls.
-- 2026-11-06: [ADR-005](docs/adr/005-state-encoding.md) accepted (state value type, `Chance`, move-gen replication).
-- 2026-11-06: Oracle logging bridge (full obs): `make oracle-log`, `make oracle-equiv` (100 games = stock Game.run, 0 failures).
-- 2026-11-06: C++ `GameState`, map load, state dump: `make difftest-init N=700` → 700/700 initial states match (2–8 players).
-- 2026-11-06: C++ rules + replay difftest (full obs): `make difftest N=140` → 140/140 games replay to the end,
-  303,641 states + end tick + results/scores match. Every action type that occurs is implemented.
-- 2026-11-07: C++ action generation (`legal_actions`, 04 §5 order): 140/140 games, 278,332 logged legal sets
-  match as multisets. One shared `*_legal` predicate per action for generation and execution. New 03b §3 quirk:
-  a city founded inside another city's borders can't be captured (unit test; corpus never reaches it).
-- 2026-11-07: Mind Bender (Heal others, Convert): `make difftest-mindbender N=100` → 100/100 games, 71,560 states,
-  59,253 legal sets, 479 Converts + 226 Heals executed. Scenario = Philosophy for all at load (`SETUP` line) +
-  our `MindBenderAgent` (bridge) vs Random. **Every Tribes action type is now implemented and difftested.**
-- 2026-11-07: Fog of war (partial obs, ADR-004): `make setup` builds a `tribes-po` copy (one constant flipped);
-  `OBS=partial` on all difftests. Map load 700/700; games 140/140 (800 meeting draws); Mind Bender 100/100.
-  Found: one-way port links (03a §6), meeting tech granted only if researchable (03b §1). In CI.
-- 2026-11-07: **Difftest at 1,000 games (DoD)**: `make difftest-batched N=1000` (generate/diff/delete 32 at a time)
-  → 1,000/1,000 full obs (2,173,391 states, 1,992,166 legal sets, 42 min) and 1,000/1,000 `OBS=partial`
-  (2,232,082 / 2,048,235, 38 min); i9-11950H 16 threads, WSL2. 0 failures.
-- 2026-11-07: Agent observation (`poly::Observation`, ADR-005 §2 outcome, 04 §7): the bridge logs Tribes' agent
-  copy (`OBS`) before every decision; all 480 corpus games match (683,906 observations). Legal actions must come
-  from the true state (6.3% of fog decisions differ when generated from the observation).
-- 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
-
-- 2026-11-08: `make bench` (random playouts, same levels, same loop): **5.3–6.3× faster than Tribes** (median of
-  3 runs/config, range 4.4–7.2×; i9-11950H, WSL2). Absolute rates noisy (±50% run to run): quote ratio + ranges.
-  Chart `docs/media/2026-11-08-sim-speed.png` + sidecar; capture confirmed by the user 2026-11-08.
-
-- 2026-11-08: Replay viewer: `make replay [OBS=partial]` records a random game (`tools/record.cpp`, poly-replay-1
-  JSON), `tools/viewer/index.html` plays it (fog "view as" a tribe, PNG export). Screenshots
-  `docs/media/2026-11-08-replay-viewer{,-fog}.png` + sidecar; captures confirmed by the user 2026-11-08.
-
-- 2026-11-08: [ADR-006](docs/adr/006-action-encoding.md) accepted and implemented: action → policy index
-  (24×24 tile frame × 332 channels + 130 global = 191,362), from the observation; 10 tests, 7/7 injected bugs caught;
-  0 failures over 155M legal actions on the 1,200 bench levels.
+## Current: Phase 2 — Search baselines (IN PROGRESS, started 2026-11-08)
+DoD (docs/buildplan.md §11): MCTS and RHEA reimplemented; the paper's win-rate pattern reproduced; media =
+baseline round-robin table.
 
 ### Next
-1. Phase 1 DoD check (docs/buildplan.md §11): every item ticked; README/log/media done → ask the user to close Phase 1.
-2. Phase 2: MCTS and RHEA baselines reproducing the paper's pattern (§7.4); `make tournament` first.
+1. Reference numbers: the paper's round-robin results (source, setup) and Tribes' own agents re-run locally.
+2. `make tournament` (round-robin, seat swaps, fixed map seeds, Wilson 95% CIs) → data/results/.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
