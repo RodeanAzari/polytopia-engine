@@ -14,12 +14,14 @@ baseline round-robin table.
   --xmx=1g --out=data/results/tribes-rr-20261108.csv` (Random, Rule Based, OSLA, MC, MCTS, RHEA; 15 pairs × 25 stock
   level seeds × 2 seatings = 750 games; est. 6–8 h). Resumable: rerun the same command, finished games are skipped.
   Summary → `data/results/tribes-rr-20261108.md` (Wilson CIs per agent and pair). Search games: 270–670 s each.
-- **Paper:** the AIIDE 2020 Tribes paper is not readable by our tools (ojs.aaai.org bot wall, core.ac.uk 403;
-  a curl with a browser UA was rightly denied). User to save it as `docs/refs/tribes-aiide2020.pdf` (gitignored).
-  Secondary source (arXiv 2104.08641) ranks RHEA > Rule Based > MCTS; not yet checked against the paper.
+- **Paper read** (2026-11-08): setup + Table 1 in `docs/agents/00-paper-baselines.md`. Our Tribes run matches its
+  setup (11×11, 1:1 land, Xin Xi vs. Imperius, Capitals, full obs, 50-turn cap, 2,000 FM calls, C=√2, no MCTS
+  rollouts, length 20, RHEA pop 1) **except games per pair: 50 vs. the paper's 500** (Wilson ±14 pp vs. ±4 pp).
+  Paper pattern: RHEA > RB > MCTS > MC ≈ OSLA ≫ Random.
 
 ### Next
-1. Read the paper: setup + results tables verbatim; align the tournament setup (players, mode, budgets) with it.
+1. Decide (user): where the 500-games-per-pair replication runs (Tribes ≈ 100 h CPU for the 10 search/RB pairs,
+   or on our C++ sim once agents are reimplemented, with the 50/pair Tribes run as the cross-check).
 2. ADR-007 evaluation protocol (round-robin, seat swaps, fixed seeds, Wilson CIs, SPRT for engine changes).
 3. Agent facts sheet (`docs/agents/`): Tribes' Diff heuristic (read: 5·production + 4·techs + 0.1·score +
    4·cities + 2·units + 3·kills + 2·city levels, as deltas vs. the root state, own minus mean of others, plus own
