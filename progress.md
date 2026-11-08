@@ -44,9 +44,12 @@
   from the true state (6.3% of fog decisions differ when generated from the observation).
 - 2026-11-05: Real-game Phase 6 planned ([ADR-003](docs/adr/003-real-game-phase.md)): after Phase 5; real-game interface method open, fog-filtered.
 
-### Next (proposed 2026-11-07; Phase 1 DoD in docs/buildplan.md §11)
-1. `make bench`: simulator vs. Tribes forward-model throughput (hardware recorded) + speed chart (media).
-2. Replay viewer (screenshot is Phase 1 media); action-encoding ADR.
+- 2026-11-08: `make bench` (random playouts, same levels, same loop): **5.3–6.3× faster than Tribes** (median of
+  3 runs/config, range 4.4–7.2×; i9-11950H, WSL2). Absolute rates noisy (±50% run to run): quote ratio + ranges.
+  Chart `docs/media/2026-11-08-sim-speed.png` + sidecar; awaiting user confirmation of the capture.
+
+### Next (Phase 1 DoD in docs/buildplan.md §11)
+1. Replay viewer (screenshot is Phase 1 media); action-encoding ADR.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
@@ -60,5 +63,5 @@
 ### Open items
 - CI difftest job: full + Mind Bender + partial obs, actions v5: green on GitHub (run 42408782685, 2026-11-07).
 - README.md written 2026-11-07 (§13.4 structure; dashes for unmeasured rows). Repo licence: MIT (user, 2026-11-07).
-- ruff isn't installed locally and CI has no Python step yet: `oracle/scripts/*.py` is unlinted. Add with `make setup` venv.
+- ruff now in `.venv` (`make setup`), not yet in CI; 6 pre-existing findings in the older `oracle/scripts/*.py`.
 - Permission email to the Tribes authors drafted (`docs/tribes-permission-request.md`); not yet sent.

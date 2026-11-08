@@ -88,11 +88,12 @@ difftest-batched: build
 bench: build
 	python3 oracle/scripts/bench.py $(N)
 
-# Media from the newest bench run (docs/buildplan.md §13.2: dated names; the sidecar .md is written by hand).
-BENCH_CSV ?= $(lastword $(sort $(wildcard data/results/bench-*.csv)))
+# Speed chart from repeat bench runs (default: every data/results/bench-*.csv; pass BENCH_CSV= to choose).
+# docs/buildplan.md §13.2: dated name; the sidecar .md next to it is written by hand.
+BENCH_CSV ?= $(sort $(wildcard data/results/bench-*.csv))
 plots:
 	@test -n "$(BENCH_CSV)" || { echo "plots: no data/results/bench-*.csv; run make bench" >&2; exit 1; }
-	.venv/bin/python tools/plot_bench.py $(BENCH_CSV) docs/media/$(shell date +%F)-sim-speed.png
+	.venv/bin/python tools/plot_bench.py docs/media/$(shell date +%F)-sim-speed.png $(BENCH_CSV)
 
 build:
 	cmake -S . -B build/release $(GEN) -DCMAKE_BUILD_TYPE=Release

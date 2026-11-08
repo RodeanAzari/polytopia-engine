@@ -112,7 +112,7 @@ Every phase's DoD includes **README updated, log entry, media captured, user con
 ### Phase 1 — Simulator
 - [x] Licence check done; rules-source ADR written (ADR-002)
 - [x] Port passes the differential test on ≥ 1,000 seeded Tribes games (or every difference explained)
-- [ ] Benchmark vs. Tribes' Java forward model
+- [x] Benchmark vs. Tribes' Java forward model
 - [ ] Media: simulator speed chart; replay viewer screenshot
 
 ### Phase 2 — Search baselines
