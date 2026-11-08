@@ -1,6 +1,6 @@
 # ADR-006: Action encoding and factored policy head
 
-- **Status:** Proposed (2026-11-08)
+- **Status:** Accepted (2026-11-08)
 - **Date:** 2026-11-08
 
 ## Context
@@ -115,3 +115,13 @@ One forward pass prices every legal action at once, which is what PUCT priors ne
 - Search can key edges by policy index from Phase 2 on (an int, cheap to hash and compare), and Phase 4 reuses
   the same index for the network.
 - Tribe-relative diplomacy channels assume ≤ 8 tribes (kMaxTribes, ADR-005).
+
+## Outcome (2026-11-08)
+Implemented as `poly::encode_action` / `poly::decode_action` (`sim/include/poly/action_encoding.hpp`), exactly as
+the table above. Tests (`tests/sim/test_action_encoding.cpp`): hand-computed indices for every action group and
+both window corners; loud failure outside the window and for a target hidden by fog; a property test over 24 random
+games on random maps (both observability modes, every action type exercised) checking range, uniqueness within each
+legal set, observation = true state, and decode round trip. 7 injected encoder bugs (window centre, swapped axes,
+relative-tribe sign, Gather located on the city, Build parameter dropped, reversed attack offset, window check
+removed) were each caught. On the 1,200 Tribes-generated bench levels: 155,232,869 legal actions in 3,121,969
+legal sets (both modes) encoded with 0 failures.

@@ -52,8 +52,13 @@
   JSON), `tools/viewer/index.html` plays it (fog "view as" a tribe, PNG export). Screenshots
   `docs/media/2026-11-08-replay-viewer{,-fog}.png` + sidecar; captures confirmed by the user 2026-11-08.
 
-### Next (Phase 1 DoD in docs/buildplan.md §11)
-1. After capture confirmation: tick the Phase 1 media item. Action-encoding ADR (required before Phase 2 search).
+- 2026-11-08: [ADR-006](docs/adr/006-action-encoding.md) accepted and implemented: action → policy index
+  (24×24 tile frame × 332 channels + 130 global = 191,362), from the observation; 10 tests, 7/7 injected bugs caught;
+  0 failures over 155M legal actions on the 1,200 bench levels.
+
+### Next
+1. Phase 1 DoD check (docs/buildplan.md §11): every item ticked; README/log/media done → ask the user to close Phase 1.
+2. Phase 2: MCTS and RHEA baselines reproducing the paper's pattern (§7.4); `make tournament` first.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded

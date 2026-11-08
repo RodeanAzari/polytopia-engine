@@ -14,7 +14,7 @@ if(POLY_SANITIZE)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
-add_library(poly_sim STATIC sim/src/state.cpp sim/src/level.cpp sim/src/dump.cpp sim/src/rules.cpp sim/src/move.cpp sim/src/network.cpp sim/src/observation.cpp)
+add_library(poly_sim STATIC sim/src/state.cpp sim/src/level.cpp sim/src/dump.cpp sim/src/rules.cpp sim/src/move.cpp sim/src/network.cpp sim/src/observation.cpp sim/src/action_encoding.cpp)
 target_include_directories(poly_sim PUBLIC sim/include)
 
 add_executable(oracle_diff tools/oracle_diff.cpp)
@@ -34,7 +34,7 @@ FetchContent_Declare(googletest
 FetchContent_MakeAvailable(googletest)
 
 enable_testing()
-add_executable(sim_tests tests/sim/test_rng.cpp tests/sim/test_inline_vector.cpp tests/sim/test_level.cpp tests/sim/test_actions.cpp tests/sim/test_fog.cpp)
+add_executable(sim_tests tests/sim/test_rng.cpp tests/sim/test_inline_vector.cpp tests/sim/test_level.cpp tests/sim/test_actions.cpp tests/sim/test_fog.cpp tests/sim/test_action_encoding.cpp)
 target_link_libraries(sim_tests PRIVATE poly_sim GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(sim_tests)

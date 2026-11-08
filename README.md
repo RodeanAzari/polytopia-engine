@@ -30,14 +30,14 @@ reproduces it. Dashes mean not measured yet.
 | **Win rate vs. all Tribes agents** | — |
 | **Network and training compute** | — (Phase 4) |
 | **Human results** | — (Phase 5) |
-| **Tests** | 40 GoogleTest unit tests, Release and Debug with ASan/UBSan; every difftest also run under the sanitizers on a subset |
+| **Tests** | 50 GoogleTest unit tests, Release and Debug with ASan/UBSan; every difftest also run under the sanitizers on a subset |
 | **CI** | Build, unit tests, clang-tidy and sanitizers; a short replay difftest against Tribes, with and without fog, on every push |
 
 ## Status
 
 | Phase | State |
 |---|---|
-| 1 — Simulator | **In progress**: rule-facts sheet done; map load, every action type and legal-action generation bit-exact, with and without fog. the agent's fog-filtered observation matches Tribes' at every decision. Speed benchmarked against Tribes (5–6× faster); replay viewer. Remaining: action-encoding decision |
+| 1 — Simulator | **In progress**: rule-facts sheet done; map load, every action type and legal-action generation bit-exact, with and without fog. the agent's fog-filtered observation matches Tribes' at every decision. Speed benchmarked against Tribes (5–6× faster); replay viewer; action encoding for search and the policy head ([ADR-006](docs/adr/006-action-encoding.md)). All Phase 1 checklist items done |
 | 2 — Search baselines | Not started |
 | 3 — Action-level MCTS + heuristic priors | Not started |
 | 4 — Learned policy/value network | Not started (needs GPU time) |
@@ -112,6 +112,11 @@ Matching Tribes exactly means matching its bugs; each is recorded in the sheet a
   Same seed, same game.
 - **Legal actions in Tribes' generation order**, one shared legality predicate per action used by both
   generation and execution; an illegal action aborts loudly.
+- **Every action has a fixed policy index** ([ADR-006](docs/adr/006-action-encoding.md)): its tile in a 24 × 24
+  frame times 332 channels (type plus target offset or parameter), plus 130 global actions, 191,362 in all.
+  Computed from the agent's observation and keyed by tiles rather than unit ids, so search can share statistics
+  across sampled hidden states and the network prices every legal action in one pass. The move window (±7 tiles)
+  follows from the movement rules; 155M legal actions on 1,200 generated maps encode without a collision.
 - **Move generation replicates Tribes' search exactly**, including its priority-queue tie-breaking, because the
   reachable set depends on expansion order ([02 §3](docs/rules/02-combat-movement.md)).
 
@@ -203,7 +208,6 @@ Python 3.11+, and clang-tidy for `make ci`.
 
 ## Roadmap
 
-- **Finish Phase 1:** the action-encoding decision.
 - **Phase 2–3:** search baselines, then action-level MCTS with heuristic priors and macro-actions, until it beats
   RHEA, with confidence intervals.
 - **Phase 4:** a policy/value network trained by self-play (GPU time to be budgeted first).
