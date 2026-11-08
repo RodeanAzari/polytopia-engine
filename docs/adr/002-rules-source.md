@@ -50,3 +50,20 @@ by copyright. Their expression in code is.
 Approved by the user: CI may clone Tribes at the pinned commit (via `make setup`) on the CI runner and run a short
 replay difftest there. This counts as running the oracle, like a local run; Tribes is still never vendored,
 committed or redistributed, and logs stay build artifacts (not committed).
+
+## Amendment 2026-11-08: Tribes' agents as baselines
+Approved by the user. Phase 2 reimplements Tribes' agents (Rule Based, OSLA, MC, MCTS, RHEA and the state
+heuristic they share) in C++ as baselines (docs/buildplan.md §7.4). The same rule as for the game rules applies:
+- **Facts only.** A written agent facts sheet (`docs/agents/`) records each agent's behaviour as facts: the
+  algorithm, parameter values, heuristic terms and weights, budgets, tie-breaks and the order of decisions. Its
+  sources are the Tribes paper, the standard literature on MCTS and rolling-horizon evolution, and the Tribes
+  source **read only to extract those facts**. No Java code, class structure or comments are translated or copied.
+  The C++ agents are written from the facts sheet, in our own architecture (observation-only input, ADR-005 §2;
+  actions by policy index, ADR-006; explicit seeded RNG).
+- **Validation is statistical.** Tribes' search agents use unseeded randomness (progress.md, oracle caveats), so
+  no game-by-game difftest exists. Our versions are checked by matching the win-rate pattern of Tribes' own agents
+  (measured locally with fixed seeds, `oracle/scripts/tribes_tournament.py`) and the paper, with confidence intervals.
+- Tribes' own agents remain local opponents only, run through our bridge; never vendored or redistributed.
+
+Rejected: porting the agents' Java code (same licence problem as the rules); writing agents from the paper's
+descriptions alone (too little detail to reproduce its numbers, e.g. heuristic weights and budgets).
