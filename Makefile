@@ -4,7 +4,7 @@ TRIBES_COMMIT := 270e7e564630e5ef3dcc04c96dd66f58ef7273f3
 GEN := $(shell command -v ninja >/dev/null 2>&1 && echo "-G Ninja")
 JOBS ?= $(shell nproc)
 
-.PHONY: setup oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender difftest-batched build test tidy format clean difftest bench tournament selfplay train plots ci
+.PHONY: setup oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender difftest-batched build test tidy format clean difftest bench replay tournament selfplay train plots ci
 
 # Tribes is unlicensed: cloned locally at a pinned commit, never committed (ADR-002).
 setup:
@@ -87,6 +87,18 @@ difftest-batched: build
 # N games per side for 2/4/8 players x Capitals/Score -> data/results/bench-<stamp>.{csv,md}.
 bench: build
 	python3 oracle/scripts/bench.py $(N)
+
+# One recorded random game for the viewer (tools/viewer/index.html): Tribes generates the level
+# (OracleBench, untimed use), tools/record.cpp plays and records it. OBS=partial records fog of war.
+REPLAY_PLAYERS ?= 4
+REPLAY_MODE ?= Capitals
+REPLAY_SEED ?= 40000
+REPLAY_LEVEL := build/replays/levels/level-$(REPLAY_PLAYERS)-$(REPLAY_MODE)-$(REPLAY_SEED).txt
+replay: build
+	@test -f $(REPLAY_LEVEL) || (cd oracle/tribes && java -cp ../../build/tribes:lib/json.jar core.game.OracleBench \
+	  $(REPLAY_PLAYERS) $(REPLAY_MODE) $(REPLAY_SEED) 1 0 ../../build/replays/levels > /dev/null)
+	build/release/record $(REPLAY_LEVEL) build/replays/game-$(REPLAY_PLAYERS)-$(REPLAY_MODE)-$(REPLAY_SEED)-$(OBS).json $(OBSFLAG)
+	@echo "open tools/viewer/index.html in a browser and choose that file"
 
 # Speed chart from repeat bench runs (default: every data/results/bench-*.csv; pass BENCH_CSV= to choose).
 # docs/buildplan.md §13.2: dated name; the sidecar .md next to it is written by hand.

@@ -23,6 +23,9 @@ target_link_libraries(oracle_diff PRIVATE poly_sim)
 add_executable(bench tools/bench.cpp)
 target_link_libraries(bench PRIVATE poly_sim)
 
+add_executable(record tools/record.cpp)
+target_link_libraries(record PRIVATE poly_sim)
+
 include(FetchContent)
 FetchContent_Declare(googletest
     URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz
