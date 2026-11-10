@@ -38,7 +38,7 @@ reproduces it. Dashes mean not measured yet.
 | Phase | State |
 |---|---|
 | 1 — Simulator | **Done** (2026-11-08): rule-facts sheet; map load, every action type and legal-action generation bit-exact, with and without fog; the agent's fog-filtered observation matches Tribes' at every decision; 5–6× Tribes' speed; replay viewer; action encoding for search and the policy head ([ADR-006](docs/adr/006-action-encoding.md)) |
-| 2 — Search baselines | **In progress**: tournament runner, then MCTS and RHEA reproducing the Tribes paper's pattern |
+| 2 — Search baselines | **In progress**: tournament runner, then MCTS and RHEA validated against Tribes' own agents (ADR-007 §6) |
 | 3 — Action-level MCTS + heuristic priors | Not started |
 | 4 — Learned policy/value network | Not started (needs GPU time) |
 | 5 — Evaluation | Not started |

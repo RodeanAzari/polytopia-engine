@@ -54,7 +54,9 @@ paper's results are therefore a pattern to reproduce, not numbers to match exact
 The caption says "averaged across 2000 game ends", but 5 opponents × 500 games = 2,500 per agent. The
 discrepancy is in the paper; we rely on the left table only.
 
-**Pattern to reproduce (Phase 2 DoD):** RHEA > RB > MCTS > MC ≈ OSLA ≫ Random; every agent beats Random ≥ 98.6%.
+**Paper pattern:** RHEA > RB > MCTS > MC ≈ OSLA ≫ Random; every agent beats Random ≥ 98.6%. Not the Phase 2 pass
+criterion since 2026-11-10: Tribes at the pinned commit orders RB first (ADR-007 §6.2 amendment); we report
+the comparison with the paper as a finding.
 
 ## Other facts from the paper
 

@@ -1,6 +1,6 @@
 # ADR-007: Evaluation protocol
 
-- **Status:** Accepted (2026-11-09, user-approved)
+- **Status:** Accepted (2026-11-09, user-approved); §6.2 amended 2026-11-10 (user-approved)
 - **Date:** 2026-11-09
 
 ## Context
@@ -69,11 +69,24 @@ at **equal FM calls** for the headline; wall-clock time per move is reported nex
 ### 6. "Paper pattern reproduced" (Phase 2 DoD), decided before the run
 On our simulator, Paper condition, 25 paper levels × 20 games (10 per seating) = 500 per pair:
 1. every agent beats Random with the lower Wilson bound ≥ 95%;
-2. ordering by aggregate win rate: RHEA > RB > MCTS > {MC, OSLA}. An inversion counts as a failure only if the two
-   agents' head-to-head interval excludes 50% in the wrong direction; MC vs. OSLA may go either way (paper: 54.8%);
+2. **ordering as in Tribes' own round-robin at the pinned commit** (amended 2026-11-10, below): for each pair
+   whose 50-game Tribes interval excludes 50%, our 500-game head-to-head must not exclude 50% in the opposite
+   direction. Pairs Tribes leaves unresolved may go either way. On tribes-rr-20261108 the resolved pairs are:
+   RB > RHEA, RB > MCTS, RB > OSLA, RB > MC, OSLA > MC, MCTS > MC, RHEA > MC, and every agent > Random;
+   unresolved: RHEA–MCTS, RHEA–OSLA, MCTS–OSLA. The paper's ordering (RHEA > RB > MCTS > {MC, OSLA}) is
+   compared and reported as a finding, not a pass criterion;
 3. **cross-check vs. Tribes:** for each of the 15 pairs, our 500-game interval and the 50-game Tribes interval
    (tribes-rr-20261108) overlap. A pair that fails is investigated as a possible agent-reimplementation bug
    before any result is reported.
+
+**Amendment 2026-11-10 (user-approved), §6.2.** Originally: "ordering by aggregate win rate: RHEA > RB > MCTS >
+{MC, OSLA}; an inversion fails only if the head-to-head interval excludes 50% in the wrong direction". Tribes'
+own agents fail that at commit 270e7e5 (tribes-rr-20261108: RB vs RHEA 74%, 60–84%; RB vs MCTS 70%, 56–81%),
+so a faithful reimplementation could not pass it; the commit differs from the paper's (diplomacy and later
+changes). The reference became Tribes' measured ordering. Decided before any of our search agents' tournament
+results existed (only 4-game smoke runs). Rejected: keeping the paper ordering and reporting a known failure
+(it would test the Tribes version gap, not our agents); dropping criterion 2 (criterion 3's 50-game intervals
+are wide, so the direction check on resolved pairs still adds power).
 
 ### 7. Records
 One CSV row per game in `data/results/<tournament-id>.csv`: game index, level seed, game seed, condition,
