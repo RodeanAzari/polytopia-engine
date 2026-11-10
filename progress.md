@@ -24,10 +24,10 @@ baseline round-robin table.
    are reimplemented; the 50/pair Tribes run (`tribes-rr-20261108`) is the cross-check that ours match Tribes'.
 2. **ADR-007 evaluation protocol: accepted (user, 2026-11-09).** Seat-swapped pairs, paper-25/dev/test seed lists,
    full-key ties = draws, Paper/Fog/Spread conditions, pentanomial SPRT [0, 20] Elo; Phase 2 pass criteria fixed (§6).
-3. Agent facts sheet (`docs/agents/`): Tribes' Diff heuristic (read: 5·production + 4·techs + 0.1·score +
-   4·cities + 2·units + 3·kills + 2·city levels, as deltas vs. the root state, own minus mean of others, plus own
-   connected cities and visible tiles), MCTS, RHEA, Rule Based, facts-only per the ADR-002
-   amendment of 2026-11-08 (user-approved); then reimplement in C++ (`search/`) and `make tournament` on our sim.
+3. **Agent facts sheets done (2026-11-09):** `docs/agents/01`–`05` (common + Diff, MCTS, OSLA + MC, RHEA, Rule Based +
+   Random). Next: reimplement in C++ (`search/`) from the sheets, plus `make tournament` per ADR-007 (seed lists,
+   pair seeds, draw detection, illegal returned action = no-op). Order: runner + Random + Rule Based first
+   (cheapest cross-check), then OSLA, MC, MCTS, RHEA.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
