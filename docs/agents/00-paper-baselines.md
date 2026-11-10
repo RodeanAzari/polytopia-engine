@@ -22,8 +22,9 @@ Turn-Based Strategy Game for AI Research", AIIDE-20, pp. 252–258. Local copy `
 | Forced End Turn | tried, discarded | `FORCE_TURN_END = false` |
 | Disband / Destroy | removed from SFP agents' and RB's choices | per agent code (to check in the agent facts sheets) |
 
-Root prioritization (MC, MCTS): per decision call, each iteration draws its first action only from one action
-group (Unit, City or Tribe) picked at random; deeper steps use all actions.
+Root prioritization (MC, MCTS): the first action is drawn only from one action group (Unit, City or Tribe),
+picked at random **once per decision call** (code; the paper's wording read as per iteration). Deeper steps use
+all actions. Details and quirks: `01-common-and-diff-heuristic.md` §3.
 
 Known differences from the paper's code: our Tribes commit (270e7e5) is later and includes diplomacy; the
 paper's results are therefore a pattern to reproduce, not numbers to match exactly.
