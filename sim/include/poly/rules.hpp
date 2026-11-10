@@ -56,6 +56,10 @@ void legal_actions(const GameState& s, ActionList& out);
 // negative. Raw: no occupation penalty, no clamp.
 int city_production(const City& c);
 
+// Researches a uniformly random researchable tech (enum order, from `chance`) at no cost and for no
+// score; nothing when none is. The ruins' Research bonus (03b §5).
+void research_random(TribeState& t, Chance& chance);
+
 // Unit u's Heal-others targets (03b §7): its own tribe's units within its range, below max HP.
 inline constexpr int kMaxHealTargets = 24;
 using HealTargets = InlineVector<Slot, kMaxHealTargets>;

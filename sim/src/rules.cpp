@@ -906,22 +906,9 @@ void examine(GameState& s, Slot u, Chance& chance) {
             }
             break;
         }
-        case RuinBonus::Research: {
-            if (t.all_researched) {
-                break;
-            }
-            std::array<Tech, kNumTechs> candidates{};
-            int n = 0;
-            for (int k = 0; k < kNumTechs; ++k) {
-                if (researchable(t, static_cast<Tech>(k))) {
-                    candidates[static_cast<std::size_t>(n++)] = static_cast<Tech>(k);
-                }
-            }
-            if (n > 0) {
-                mark_researched(t, candidates[static_cast<std::size_t>(chance.random_tech(n))]);
-            }
+        case RuinBonus::Research:
+            research_random(t, chance);
             break;
-        }
         case RuinBonus::PopGrowth:
             add_population(s, s.cities[handler], p, kLevelUpPopGrowth);
             break;
@@ -1548,6 +1535,22 @@ void legal_actions(const GameState& s, ActionList& out) {
 }
 
 int city_production(const City& c) { return production(c); }
+
+void research_random(TribeState& t, Chance& chance) {
+    if (t.all_researched) {
+        return;
+    }
+    std::array<Tech, kNumTechs> candidates{};
+    int n = 0;
+    for (int k = 0; k < kNumTechs; ++k) {
+        if (researchable(t, static_cast<Tech>(k))) {
+            candidates[static_cast<std::size_t>(n++)] = static_cast<Tech>(k);
+        }
+    }
+    if (n > 0) {
+        mark_researched(t, candidates[static_cast<std::size_t>(chance.random_tech(n))]);
+    }
+}
 
 void heal_targets(const GameState& s, Slot u, HealTargets& out) {
     out.clear();
