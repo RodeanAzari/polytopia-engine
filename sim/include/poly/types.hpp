@@ -195,9 +195,12 @@ inline constexpr int kMonumentPoints = 400;
 inline constexpr int kNumMonuments = 7;
 inline constexpr int kFirstMonument = static_cast<int>(Building::AltarOfPeace);
 
-enum class MonumentStatus : std::uint8_t { Unavailable, Available, Built };
-inline constexpr std::array<std::string_view, 3> kMonumentStatusName = {"UNAVAILABLE", "AVAILABLE",
-                                                                        "BUILT"};
+// Absent: not in the tribe's monument map at all: another tribe's in an observation (Tribes' copy
+// leaves the map empty, 04 §7). Unlocks need Unavailable, so it stays absent until built (or the
+// unconditional Altar of Peace).
+enum class MonumentStatus : std::uint8_t { Unavailable, Available, Built, Absent };
+inline constexpr std::array<std::string_view, 4> kMonumentStatusName = {"UNAVAILABLE", "AVAILABLE",
+                                                                        "BUILT", "ABSENT"};
 
 enum class TurnStatus : std::uint8_t { Fresh, Moved, Attacked, MovedAndAttacked, Pushed, Finished };
 inline constexpr std::array<std::string_view, 6> kTurnStatusName = {

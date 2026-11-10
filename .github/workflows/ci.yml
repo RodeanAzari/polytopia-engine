@@ -23,3 +23,5 @@ jobs:
       - run: make difftest N=7              # 2..8 players, both modes: every state + legal-action set
       - run: make difftest-mindbender N=3   # Heal others, Convert
       - run: make difftest N=7 OBS=partial  # fog: reveals, meeting techs, network updates (ADR-004)
+      - run: make difftest-fm N=7 BATCH=7   # Tribes' agent-side forward model on observations (04 §9)
+      - run: make difftest-fm N=7 BATCH=7 OBS=partial

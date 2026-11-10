@@ -7,6 +7,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <deque>
 #include <string>
 #include <utility>
@@ -210,7 +211,8 @@ TEST(Fog, ExplorerRevealUpdatesTheNetwork) {
     EXPECT_TRUE(s.tribes[0].connected.contains(second));
 }
 
-// 04 §7: a tile the observer can't see shows fog and nothing else.
+// 04 §7: a tile the observer can't see shows fog and nothing else, except that it is owned (Tribes'
+// city id 0, not -1) by no actual city: our phantom ghost (kFogOwnerId, tribe -1).
 TEST(Observation, FogTilesHoldNothing) {
     GameState s = load({{{1, 1}, "c:0"}, {{9, 9}, "c:2"}, {{8, 8}, "d:w"}});
     s.network.set(tile(s, 8, 8));
@@ -220,7 +222,9 @@ TEST(Observation, FogTilesHoldNothing) {
     const auto bare_fog = [&](std::size_t i) {
         return o.terrain[i] == poly::Terrain::Fog && o.resource[i] == poly::Resource::None &&
                o.building[i] == poly::Building::None && o.unit_at[i] == poly::kNoSlot &&
-               o.city_owner[i] == poly::kNoSlot && !o.network.test(i);
+               o.city_owner[i] != poly::kNoSlot &&
+               o.cities[o.city_owner[i]].id == poly::kFogOwnerId &&
+               o.cities[o.city_owner[i]].tribe == -1 && !o.network.test(i);
     };
     int fog = 0;
     for (std::size_t i = 0; i < 121; ++i) {
@@ -318,6 +322,77 @@ TEST(Observation, HiddenInformationDoesNotChangeIt) {
     EXPECT_TRUE(same(a, b));
     b.tribes[1].score += 1;  // visible: the comparison can tell
     EXPECT_FALSE(same(a, b));
+}
+
+// 04 §7: Tribes' actor map (a HashMap, 16 buckets) doubles once it holds more than 3/4 of its
+// bucket count in live cities + units, and never shrinks.
+TEST(Observation, ActorMapCapacityGrowsAtThreeQuarters) {
+    GameState s = load({{{1, 1}, "c:0"}, {{9, 9}, "c:2"}});
+    const auto live = [&] {
+        return std::ranges::count_if(s.cities, [](const poly::City& c) { return c.id != 0; }) +
+               std::ranges::count_if(s.units, [](const poly::Unit& u) { return u.id != 0; });
+    };
+    ASSERT_EQ(s.actor_map_capacity, 16);
+    while (live() < 12) {
+        (void)poly::new_unit(s);
+    }
+    EXPECT_EQ(s.actor_map_capacity, 16);  // 12 = 3/4 of 16: no resize yet
+    const Slot u = poly::new_unit(s);
+    EXPECT_EQ(s.actor_map_capacity, 32);
+    s.units[u] = poly::Unit{};  // removing an actor never shrinks it
+    (void)poly::new_unit(s);
+    EXPECT_EQ(s.actor_map_capacity, 32);
+}
+
+// 04 §7: another tribe's visible units are listed in the actor map's iteration order, bucket
+// (id mod capacity) first, so it depends on the capacity, not just on the ids.
+TEST(Observation, ForeignActorsInActorMapOrder) {
+    GameState s = load({{{1, 1}, "c:0"}, {{9, 9}, "c:2"}});
+    s.tribes[0].visible.set();  // the observer sees everything
+    const Slot a = capital_unit(s, 1);
+    const Slot b = poly::new_unit(s);
+    s.units[b] = s.units[a];
+    teleport(s, b, 9, 8);
+    s.units[a].id = 20;  // bucket 4 of 16, 20 of 32
+    s.units[b].id = 6;   // bucket 6
+    const auto listed = [&](int capacity) {
+        s.actor_map_capacity = capacity;
+        const poly::Observation obs = poly::observe(s, 0);
+        std::vector<std::int32_t> ids;
+        for (const Slot u : obs.view().tribes[1].tribe_units) {
+            ids.push_back(obs.view().units[u].id);
+        }
+        return ids;
+    };
+    EXPECT_EQ(listed(16), (std::vector<std::int32_t>{20, 6}));
+    EXPECT_EQ(listed(32), (std::vector<std::int32_t>{6, 20}));
+}
+
+// 04 §7, 03b §2: a fogged tile is owned by no actual city (Tribes' id 0), so claiming borders from
+// an observation (a search, 04 §9) skips it while still taking visible unowned tiles.
+TEST(Observation, FoggedTilesCannotBeClaimed) {
+    GameState s = load({{{1, 1}, "c:0"}, {{9, 9}, "c:2"}});
+    ASSERT_FALSE(s.tribes[0].visible.test(tile(s, 4, 4)));
+    ASSERT_TRUE(s.tribes[0].visible.test(tile(s, 3, 3)));
+    GameState v = poly::observe(s, 0).view();
+    const Slot fog_owner = v.city_owner[tile(v, 4, 4)];
+    const Slot capital = v.tribes[0].capital;
+    poly::claim_tiles(v, capital, 3);
+    EXPECT_EQ(v.city_owner[tile(v, 4, 4)], fog_owner);
+    EXPECT_EQ(v.city_owner[tile(v, 3, 3)], capital);
+}
+
+// 04 §7, 03a §5: another tribe's monument map is empty in an observation, so in a search its
+// unlocks (which need "unavailable") do nothing; building one still records it as built.
+TEST(Observation, HiddenMonumentsDontUnlock) {
+    GameState s = load({{{1, 1}, "c:0"}, {{9, 9}, "c:2"}});
+    GameState v = poly::observe(s, 0).view();
+    poly::unlock(v.tribes[1], poly::Building::ParkOfFortune);
+    EXPECT_EQ(poly::monument(v.tribes[1], poly::Building::ParkOfFortune),
+              poly::MonumentStatus::Absent);
+    poly::unlock(v.tribes[0], poly::Building::ParkOfFortune);  // the observer's own map is real
+    EXPECT_EQ(poly::monument(v.tribes[0], poly::Building::ParkOfFortune),
+              poly::MonumentStatus::Available);
 }
 
 }  // namespace

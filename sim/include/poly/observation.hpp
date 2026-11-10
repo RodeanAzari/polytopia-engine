@@ -17,13 +17,18 @@ class Observation;
 // - tiles the observer can't see: Terrain::Fog, nothing else; seen tiles: resources masked by the
 //   observer's tech;
 // - other tribes: stars, kills, pacifist counter, techs, monuments and all lists hidden, vision all
-//   set; their visible cities and units are listed (cities, tribe_units) in slot order;
+//   set; their visible cities and units are listed (cities, tribe_units) in Tribes' actor-map
+//   order (GameState::actor_map_capacity);
 // - other tribes' cities on visible tiles: population, production and unit list hidden; on hidden
 //   tiles: kept only as a ghost (id, tribe -1, nothing else) so that a capital or a seen tile's
-//   owner still names it; other tribes' units on hidden tiles are gone, visible ones have no home
-//   city and no kills;
+//   owner still names it; fogged tiles are owned by one phantom ghost (id kFogOwnerId); other
+//   tribes' units on hidden tiles are gone, visible ones have no home city and no kills;
 // - every city's points-worth is 0 (Tribes' copy doesn't carry it, own cities included).
 [[nodiscard]] Observation observe(const GameState& s, int observer);
+
+// Actor id of the phantom ghost city that owns every fogged tile of an observation (Tribes' city
+// id 0 on such tiles: owned, but by no actor).
+inline constexpr std::int32_t kFogOwnerId = -1;
 
 class Observation {
    public:

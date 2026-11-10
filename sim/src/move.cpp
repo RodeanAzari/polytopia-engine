@@ -119,8 +119,8 @@ bool enterable(const GameState& s, const Unit& unit, const TribeState& tribe, st
 // without a port. `rest` is the allowance left, `on_road` whether the step starts on a usable road.
 double step_cost(const GameState& s, bool naval, std::size_t n, double rest, bool on_road) {
     const Terrain t = s.terrain[n];
-    if (naval) {
-        return is_water(t) ? 1.0 : rest;
+    if (naval) {  // Fog (observations only, 04 §9) costs 1 for naval and land units alike
+        return is_water(t) || t == Terrain::Fog ? 1.0 : rest;
     }
     double step = 0;
     if (is_water(t)) {

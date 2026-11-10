@@ -6,7 +6,8 @@
 
 namespace poly {
 
-// Recomputes tribe p's connected cities and applies the population changes.
+// Recomputes tribe p's connected cities and applies the population changes. In a non-native state
+// (an observation) only the active tribe's network is recomputed (03b §10).
 void recompute_network_tribe(GameState& s, int p);
 
 // Sets or clears a tile's network flag, then recomputes every tribe in id order (03b §10).

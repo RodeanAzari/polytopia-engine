@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <optional>
 #include <utility>
 
@@ -67,7 +68,9 @@ bool view_tile(GameState& s, int p, int x, int y, Chance& chance) {
     if (const Slot u = s.unit_at[i]; u != kNoSlot) {
         meet(s, p, s.units[u].tribe, chance);
     }
-    if (const Slot c = s.city_owner[i]; c != kNoSlot) {
+    // A ghost city (tribe -1: an observation's city the observer can't see, 04 §7) isn't an actor
+    // in Tribes' copy, so nobody meets it.
+    if (const Slot c = s.city_owner[i]; c != kNoSlot && s.cities[c].tribe >= 0) {
         meet(s, p, s.cities[c].tribe, chance);
     }
     return network;
@@ -98,11 +101,26 @@ void add_population(GameState& s, City& c, int p, int v) {
     c.points_worth += kPopulationPoints * v;
 }
 
+namespace {
+
+// After an actor is added: Tribes' actor HashMap resizes when its size exceeds 3/4 of its capacity.
+// Cities are never removed from it; units are removed when they leave the game (Unit{} slots).
+void track_actor_map(GameState& s) {
+    const auto live = std::ranges::count_if(s.cities, [](const City& c) { return c.id != 0; }) +
+                      std::ranges::count_if(s.units, [](const Unit& u) { return u.id != 0; });
+    if (live > std::ptrdiff_t{s.actor_map_capacity} / 4 * 3) {
+        s.actor_map_capacity *= 2;
+    }
+}
+
+}  // namespace
+
 Slot new_city(GameState& s) {
     for (std::size_t i = 0; i < s.cities.size(); ++i) {
         if (s.cities[i].id == 0) {
             s.cities[i] = City{};
             s.cities[i].id = s.next_actor_id++;
+            track_actor_map(s);
             return static_cast<Slot>(i);
         }
     }
@@ -115,6 +133,7 @@ Slot new_unit(GameState& s) {
         if (s.units[i].id == 0) {
             s.units[i] = Unit{};
             s.units[i].id = s.next_actor_id++;
+            track_actor_map(s);
             return static_cast<Slot>(i);
         }
     }

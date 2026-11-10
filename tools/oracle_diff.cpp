@@ -298,6 +298,9 @@ struct Outcome {
     int states = 0;          // states compared and equal
     int action_sets = 0;     // legal-action sets compared and equal
     int observations = 0;    // agent observations compared and equal
+    int probes = 0;          // probes (04 §9) replayed to PROBEEND
+    int probe_states = 0;    // probe states compared and equal
+    int probe_action_sets = 0;
     std::string stopped_at;  // first unimplemented action type, if any
     std::string detail;      // where and how the first mismatch happened
 };
@@ -338,7 +341,19 @@ class Replay {
                 throw std::runtime_error("unknown scenario: " + scenario_);
             }
         } else if (line.starts_with("RAND ")) {
-            draw(line);
+            draw(line, draws_);
+        } else if (line.starts_with("PROBE ")) {
+            probe_start();
+        } else if (line.starts_with("PRAND ")) {
+            draw(line, probe_draws_);
+        } else if (line.starts_with("PACTIONS ")) {
+            return probe_actions(std::stoi(line.substr(9)));
+        } else if (line.starts_with("PACT ")) {
+            return probe_act(line.substr(5));
+        } else if (line.starts_with("PSTATE ")) {
+            out_.failed = !probe_state(line);
+        } else if (line == "PROBEEND") {
+            ++out_.probes;
         } else if (line.starts_with("TURN ")) {
             turn(line);
         } else if (line.starts_with("ACT ")) {
@@ -368,12 +383,67 @@ class Replay {
         obs_ = full != 0 ? poly::ObsMode::Full : poly::ObsMode::Partial;
     }
 
-    void draw(const std::string& line) {
-        const auto t = tokens(line);  // RAND <caller> <method> <bound> <value>
+    static void draw(const std::string& line, std::vector<Draw>& into) {
+        const auto t = tokens(line);  // RAND|PRAND <caller> <method> <bound> <value>
         if (t.size() != 5 || t[2] != "nextInt") {
             throw std::runtime_error("unsupported draw: " + line);
         }
-        draws_.push_back({.caller = t[1], .bound = std::stoi(t[3]), .value = std::stoi(t[4])});
+        into.push_back({.caller = t[1], .bound = std::stoi(t[3]), .value = std::stoi(t[4])});
+    }
+
+    // PROBE: Tribes' search copy of the observation just logged (copy() of the agent's copy).
+    void probe_start() {
+        probe_observer_ = s_.active_tribe;
+        probe_ = poly::observe(s_, probe_observer_).view();
+        poly::legal_actions(s_, legal_);  // the copy's cached list: the environment's legal set
+        probe_legal_.assign(legal_.begin(), legal_.end());
+        probe_draws_.clear();
+        probe_step_ = 0;
+    }
+
+    bool probe_act(const std::string& text) {
+        const auto a = parse_action(text);
+        if (!a) {
+            out_.stopped_at = tokens(text).at(0);
+            return false;
+        }
+        probe_action_ = *a;
+        probe_text_ = text;
+        ++probe_step_;
+        return true;
+    }
+
+    bool probe_state(std::string block) {
+        read_block(block);
+        ReplayChance chance(std::move(probe_draws_));
+        probe_draws_.clear();
+        if (poly::agent_advance(probe_, probe_action_, chance)) {
+            poly::legal_actions(probe_, legal_);  // else Tribes keeps its stale list (04 §9)
+            probe_legal_.assign(legal_.begin(), legal_.end());
+        }
+        const std::string where =
+            "probe step " + std::to_string(probe_step_) + " after " + probe_text_ + ", " + event_;
+        if (chance.unused() > 0) {
+            throw std::runtime_error("chance: the oracle drew " + std::to_string(chance.unused()) +
+                                     " more value(s) than we did, " + where);
+        }
+        const std::string ours = poly::dump_search_state(probe_, probe_observer_);
+        if (ours != block) {
+            std::ostringstream os;
+            os << "  " << where << " (state " << out_.states << ")\n";
+            report_diff(os, block, ours);
+            out_.detail = os.str();
+            return false;
+        }
+        ++out_.probe_states;
+        return true;
+    }
+
+    bool probe_actions(int n) {
+        return compare_actions(
+            probe_legal_, n,
+            "probe step " + std::to_string(probe_step_) + " after " + probe_text_ + ", " + event_,
+            out_.probe_action_sets);
     }
 
     void turn(const std::string& line) {
@@ -414,6 +484,13 @@ class Replay {
     // ACTIONS <n> then n "A <action>" lines: the oracle's legal set in the state just dumped.
     // Compared as sorted multisets; a logged type we cannot parse stops the replay like ACT does.
     bool actions(int n) {
+        poly::legal_actions(s_, legal_);
+        return compare_actions({legal_.begin(), legal_.end()}, n, event_, out_.action_sets);
+    }
+
+    // Compares our legal set `ours` with the n "A <action>" lines that follow.
+    bool compare_actions(std::vector<poly::Action> ours, int n, const std::string& where,
+                         int& matched) {
         std::vector<poly::Action> theirs;
         std::string line;
         for (int k = 0; k < n; ++k) {
@@ -427,12 +504,10 @@ class Replay {
             }
             theirs.push_back(*a);
         }
-        poly::legal_actions(s_, legal_);
-        std::vector<poly::Action> ours(legal_.begin(), legal_.end());
         std::ranges::sort(theirs, action_less);
         std::ranges::sort(ours, action_less);
         if (ours == theirs) {
-            ++out_.action_sets;
+            ++matched;
             return true;
         }
         std::vector<poly::Action> missing;
@@ -440,7 +515,7 @@ class Replay {
         std::ranges::set_difference(theirs, ours, std::back_inserter(missing), action_less);
         std::ranges::set_difference(ours, theirs, std::back_inserter(extra), action_less);
         std::ostringstream os;
-        os << "  legal actions " << event_ << " (state " << out_.states << "): oracle "
+        os << "  legal actions " << where << " (state " << out_.states << "): oracle "
            << theirs.size() << ", ours " << ours.size() << '\n';
         for (std::size_t k = 0; k < std::min<std::size_t>(missing.size(), 5); ++k) {
             os << "  missing: " << show(missing[k]) << '\n';
@@ -575,6 +650,13 @@ class Replay {
     std::vector<std::string> level_;
     std::string scenario_;  // SETUP line, applied right after map load
     poly::GameState s_{};
+    poly::GameState probe_{};  // 04 §9 search copy
+    int probe_observer_ = -1;
+    int probe_step_ = 0;
+    poly::Action probe_action_;
+    std::string probe_text_;
+    std::vector<Draw> probe_draws_;
+    std::vector<poly::Action> probe_legal_;  // the copy's current (possibly stale) legal list
     poly::ActionList legal_;
     enum class Pending : std::uint8_t { Load, TurnStart, Action, TurnEnd, None };
     Pending pending_ = Pending::Load;
@@ -603,6 +685,9 @@ int main(int argc, char** argv) {
     long long states = 0;
     long long action_sets = 0;
     long long observations = 0;
+    long long probes = 0;
+    long long probe_states = 0;
+    long long probe_action_sets = 0;
     std::map<std::string, int> stops;
     for (const std::string& path : paths) {
         try {
@@ -614,6 +699,9 @@ int main(int argc, char** argv) {
             states += r.states;
             action_sets += r.action_sets;
             observations += r.observations;
+            probes += r.probes;
+            probe_states += r.probe_states;
+            probe_action_sets += r.probe_action_sets;
             if (r.failed) {
                 ++failures;
                 std::cerr << "MISMATCH " << path << '\n' << r.detail;
@@ -630,6 +718,10 @@ int main(int argc, char** argv) {
     std::cout << paths.size() << " logs: " << complete << " replayed to the end, " << failures
               << " failures, " << states << " states, " << action_sets << " legal-action sets and "
               << observations << " observations matched\n";
+    if (probes > 0) {
+        std::cout << "  agent-side forward model (04 §9): " << probes << " probes, " << probe_states
+                  << " search states and " << probe_action_sets << " legal-action sets matched\n";
+    }
     for (const auto& [type, n] : stops) {
         std::cout << "  stopped at unimplemented " << type << ": " << n << '\n';
     }

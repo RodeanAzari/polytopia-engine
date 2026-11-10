@@ -4,7 +4,7 @@ TRIBES_COMMIT := 270e7e564630e5ef3dcc04c96dd66f58ef7273f3
 GEN := $(shell command -v ninja >/dev/null 2>&1 && echo "-G Ninja")
 JOBS ?= $(shell nproc)
 
-.PHONY: setup oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender difftest-batched build test tidy format clean difftest bench replay tournament selfplay train plots ci
+.PHONY: setup oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender difftest-batched difftest-fm build test tidy format clean difftest bench replay tournament selfplay train plots ci
 
 # Tribes is unlicensed: cloned locally at a pinned commit, never committed (ADR-002).
 setup:
@@ -82,6 +82,15 @@ difftest-mindbender: build
 BATCH ?= 32
 difftest-batched: build
 	python3 oracle/scripts/difftest_batched.py $(N) build/oracle-logs/batched$(PO) --batch=$(BATCH) $(OBSFLAG)
+
+# Agent-side forward model (rule facts 04 §9; what Tribes' search agents simulate): the batched replay
+# difftest plus, every PROBE-th decision, 30 steps of Tribes' advance() on a copy of the observation,
+# each compared with our agent_advance (state and legal actions). OBS=partial and SCENARIO= as above.
+PROBE ?= 25
+SCENARIO ?=
+difftest-fm: build
+	python3 oracle/scripts/difftest_batched.py $(N) build/oracle-logs/fm$(PO) --batch=$(BATCH) --probe=$(PROBE) \
+	  $(OBSFLAG) $(if $(SCENARIO),--scenario=$(SCENARIO),)
 
 # Simulator speed vs. Tribes' forward model (Phase 1 DoD): uniform-random playouts on the same levels,
 # N games per side for 2/4/8 players x Capitals/Score -> data/results/bench-<stamp>.{csv,md}.

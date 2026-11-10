@@ -18,6 +18,12 @@
 //                                                  logged before each decision; other tribes' city and
 //                                                  extra-unit lists sorted (the copy fills them in HashMap order)
 //   GAMEEND <tick>, then RESULT <tribeId> <result> <score> per tribe in id order
+//   Probes (--probe=N, every N-th decision, after its OBS): Tribes' agent-side forward model (rule facts 04
+//   §9) on a copy of the observation, as search agents use it:
+//   PROBE <steps>                                  start, from the OBS just logged
+//   PRAND <caller> <method> <bound|-> <value>      draws on the probe copy's RNG (seeded here; Tribes' own is not)
+//   PACT <action>, then PSTATE ... END (OBS schema) and PACTIONS <count> + "A" lines, per step
+//   PROBEEND
 package core.game;
 
 import core.Diplomacy;
@@ -50,11 +56,21 @@ public final class OracleDriver {
     /** Game RNG that logs every draw with the first Tribes frame that asked for it. */
     static final class LoggingRandom extends Random {
         private final PrintStream out;
+        private final String tag;
         private boolean inside = false;  // a draw method calling another must log once
 
         LoggingRandom(long seed, PrintStream out) {
+            this(seed, out, "RAND");
+        }
+
+        LoggingRandom(long seed, String tag, PrintStream out) {
+            this(seed, out, tag);
+        }
+
+        private LoggingRandom(long seed, PrintStream out, String tag) {
             super(seed);
             this.out = out;
+            this.tag = tag;
         }
 
         private static String caller() {
@@ -75,7 +91,7 @@ public final class OracleDriver {
         }
 
         private void log(String method, String bound, Object value) {
-            out.println("RAND " + caller() + " " + method + " " + bound + " " + value);
+            out.println(tag + " " + caller() + " " + method + " " + bound + " " + value);
         }
 
         @Override public int nextInt(int bound) {
@@ -124,6 +140,13 @@ public final class OracleDriver {
 
     private OracleDriver() {}
 
+    /** Probe every N-th agent decision (0 = never), PROBE_STEPS forward-model steps each (04 §9). */
+    public static int probeEvery = 0;
+    static final int PROBE_STEPS = 30;
+    static final double PROBE_END_TURN = 0.2;  // chance a probe step picks End Turn when it is legal
+    private static long decisions = 0;
+    private static long probeSeed = 0;
+
     /**
      * Runs one game. agentsByRequest[i] plays tribes[i] (seats bind by tribe type, rule facts 05 §1.2).
      * @param dumpStates false = skip STATE/ACTIONS records (faster; for the loop-equivalence check).
@@ -135,6 +158,8 @@ public final class OracleDriver {
                            PrintStream out)
             throws Exception {
         LoggingRandom rnd = new LoggingRandom(gameSeed, out);
+        probeSeed = gameSeed;
+        decisions = 0;
         out.println("GAME " + levelSeed + " " + gameSeed + " " + mode + " " + (core.Constants.PLAY_WITH_FULL_OBS ? 1 : 0));
 
         // Level: generated exactly as GameState.init does, logged, then loaded through the same path.
@@ -218,6 +243,7 @@ public final class OracleDriver {
                 ect.setMaxTimeMillis(remaining);
                 GameState obs = gs.copy(id);
                 if (dumpStates) dumpState(obs, "OBS", id, out);
+                if (dumpStates && probeEvery > 0 && decisions++ % probeEvery == 0) probe(obs, id, out);
                 action = ag.act(obs, ect);
                 remaining = ect.remainingTimeMillis();
                 continueTurn = !gs.isTurnEnding() && gs.existAvailableActions(tribe);
@@ -240,6 +266,38 @@ public final class OracleDriver {
         if (dumpStates) dumpState(gs, out);
     }
 
+    /**
+     * Steps a copy of the observation with GameState.advance, as Tribes' search agents do (copy() of the
+     * copy, computeActions = true). Random actions from the copy's legal list, End Turn with probability
+     * PROBE_END_TURN when legal. The copy's RNG is replaced by a seeded, logging one (PRAND). The agent's
+     * own observation object is not touched.
+     */
+    private static void probe(GameState obs, int observer, PrintStream out) {
+        GameState g = obs.copy();
+        try {
+            Field f = GameState.class.getDeclaredField("rnd");
+            f.setAccessible(true);
+            f.set(g, new LoggingRandom(probeSeed * 1_000_003L + decisions, "PRAND", out));
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+        Random pick = new Random(probeSeed * 7_919L + decisions);
+        out.println("PROBE " + PROBE_STEPS);
+        for (int step = 0; step < PROBE_STEPS && !g.isGameOver(); ++step) {
+            ArrayList<Action> acts = g.getAllAvailableActions();
+            if (acts.isEmpty()) break;
+            Action a = null;
+            if (pick.nextDouble() < PROBE_END_TURN)
+                for (Action c : acts) if (c.getActionType() == Types.ACTION.END_TURN) a = c;
+            if (a == null) a = acts.get(pick.nextInt(acts.size()));
+            out.println("PACT " + describe(a));
+            g.advance(a, true);
+            dumpState(g, "PSTATE", observer, out);
+            dumpActions(g, "PACTIONS", out);
+        }
+        out.println("PROBEEND");
+    }
+
     private static String describe(Action a) {
         if (a instanceof ResourceGathering) {
             return a + " at " + ((ResourceGathering) a).getTargetPos();
@@ -248,10 +306,14 @@ public final class OracleDriver {
     }
 
     private static void dumpActions(GameState gs, PrintStream out) {
+        dumpActions(gs, "ACTIONS", out);
+    }
+
+    private static void dumpActions(GameState gs, String header, PrintStream out) {
         List<String> acts = new ArrayList<>();
         for (Action a : gs.getAllAvailableActions()) acts.add(describe(a));
         java.util.Collections.sort(acts);
-        out.println("ACTIONS " + acts.size());
+        out.println(header + " " + acts.size());
         for (String a : acts) out.println("A " + a);
     }
 

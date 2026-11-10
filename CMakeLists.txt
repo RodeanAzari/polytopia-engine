@@ -34,7 +34,7 @@ FetchContent_Declare(googletest
 FetchContent_MakeAvailable(googletest)
 
 enable_testing()
-add_executable(sim_tests tests/sim/test_rng.cpp tests/sim/test_inline_vector.cpp tests/sim/test_level.cpp tests/sim/test_actions.cpp tests/sim/test_fog.cpp tests/sim/test_action_encoding.cpp)
+add_executable(sim_tests tests/sim/test_rng.cpp tests/sim/test_inline_vector.cpp tests/sim/test_level.cpp tests/sim/test_actions.cpp tests/sim/test_fog.cpp tests/sim/test_action_encoding.cpp tests/sim/test_agent_advance.cpp)
 target_link_libraries(sim_tests PRIVATE poly_sim GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(sim_tests)

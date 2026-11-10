@@ -10,9 +10,12 @@ alternating with Random, level seeds from 200000 (OracleLog / MindBenderAgent.ja
 
 --partial: use the partial-obs oracle build (build/tribes-po, ADR-004) instead of stock Tribes.
 
+--probe=P (with --full): every P-th agent decision also logs a probe of Tribes' agent-side forward model
+(rule facts 04 §9; OracleDriver.probe).
+
 --start=K: seeds K .. K+N-1 instead of 0 .. N-1 (same games as one big corpus; used for batches).
 
-Usage: gen_init_corpus.py N OUT_DIR [--full] [--scenario=mindbender] [--partial] [--start=K]   (repo root,
+Usage: gen_init_corpus.py N OUT_DIR [--full] [--scenario=mindbender] [--partial] [--probe=P] [--start=K]   (repo root,
 after `make setup`)
 """
 
@@ -25,7 +28,7 @@ TRIBES = ["Xin Xi", "Imperius", "Bardur", "Oumaji", "Kickoo", "Hoodrick",
           "Luxidoor", "Vengir", "Zebasi", "Ai-Mo", "Quetzali", "Yadakk"]
 
 
-def job(k: int, out_dir: str, full: bool, extra: list[str], cp: str) -> None:
+def job(k: int, out_dir: str, full: bool, extra: list[str], probe: list[str], cp: str) -> None:
     scenario = bool(extra)
     players = 2 + k % (3 if scenario else 7)
     tribes = [TRIBES[(k + 5 * i) % 12] for i in range(players)]  # 5 is coprime to 12: distinct
@@ -36,7 +39,7 @@ def job(k: int, out_dir: str, full: bool, extra: list[str], cp: str) -> None:
     args = [str(level_seed), str(k), str(k), mode, ",".join(agents), ",".join(tribes)]
     if not full:
         args.append("--init-only")
-    args += extra
+    args += extra + probe
     path = os.path.join(out_dir, f"{'game' if full else 'init'}-{level_seed}.log")
     with open(path, "w", encoding="utf-8") as f:
         subprocess.run(["java", "-cp", cp, "OracleLog", *args], cwd="oracle/tribes", stdout=f,
@@ -47,12 +50,13 @@ def main() -> int:
     n, out_dir = int(sys.argv[1]), sys.argv[2]
     full = "--full" in sys.argv[3:]
     extra = [a for a in sys.argv[3:] if a.startswith("--scenario=")]
+    probe = [a for a in sys.argv[3:] if a.startswith("--probe=")]
     build = "tribes-po" if "--partial" in sys.argv[3:] else "tribes"
     cp = f"../../build/{build}:lib/json.jar"
     start = next((int(a.split("=", 1)[1]) for a in sys.argv[3:] if a.startswith("--start=")), 0)
     os.makedirs(out_dir, exist_ok=True)
     with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as ex:
-        list(ex.map(lambda k: job(k, out_dir, full, extra, cp), range(start, start + n)))
+        list(ex.map(lambda k: job(k, out_dir, full, extra, probe, cp), range(start, start + n)))
     print(f"{n} logs in {out_dir}")
     return 0
 

@@ -32,6 +32,16 @@ bool update_game_over(GameState& s);
 // Every random outcome comes from `chance`.
 void apply_action(GameState& s, const Action& a, Chance& chance);
 
+// One step of Tribes' agent-side forward model (rule facts 04 §9), as its search agents step a copy
+// of their observation: a non-End-turn action runs like apply_action with no game-over check; End
+// turn (ignored while the active tribe can't end its turn) runs turn end, the game-over check, then
+// turn start for the next tribe that hasn't lost, without advancing the tick. For reproducing
+// Tribes' baselines only; our own search simulates the game loop. An action that isn't legal in s
+// changes nothing (Tribes' copy can't execute it), so an environment action may be passed. Returns
+// whether it executed: when it didn't, Tribes keeps the copy's previous legal-action list (stale;
+// at a search root, the environment's), so the caller must keep its list rather than recompute.
+bool agent_advance(GameState& s, const Action& a, Chance& chance);
+
 // The active tribe's legal actions (04 §5), in Tribes' generation order: cities (city list order),
 // then units (city units, then tribe-owned units), then tribe actions. A city that can level up
 // makes its level-up variants the only actions. Empty once the game is over.

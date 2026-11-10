@@ -1047,7 +1047,7 @@ void capture_city(GameState& s, Slot u, Slot c, Chance& chance) {
     }
     move_all_from(s, q, c, chance);
     move_one_to(s, p, c, chance);
-    if (tribe(s, q).cities.empty()) {
+    if (tribe(s, q).cities.empty() && s.native) {  // non-native copies don't eliminate (03b §3)
         eliminate(s, q);
     }
     set_network(s, x, y, true);
@@ -1643,6 +1643,39 @@ void end_turn(GameState& s) {
             recover(s, u);
         }
     });
+}
+
+bool agent_advance(GameState& s, const Action& a, Chance& chance) {
+    if (a.type != ActionType::EndTurn) {
+        // An action that isn't legal in the copy doesn't execute (04 §9). Only an agent's root
+        // actions can be: they are the environment's legal set, and the copy masks some facts (e.g.
+        // crops without Organization, 04 §7).
+        ActionList legal;
+        legal_actions(s, legal);
+        if (std::ranges::find(legal, a) == legal.end()) {
+            return false;
+        }
+        apply_action(s, a, chance);
+        return true;
+    }
+    const int p = s.active_tribe;
+    if (((s.can_end_turn >> static_cast<unsigned>(p)) & 1U) == 0) {
+        return false;  // a level-up is pending: the End-turn command doesn't execute
+    }
+    s.turn_must_end = true;
+    end_turn(s);
+    if (update_game_over(s)) {
+        return true;
+    }
+    int q = (p + 1) % s.num_tribes;  // next id after p, cyclically, that hasn't lost; tick stays
+    while (tribe(s, q).result == Result::Loss && q != p) {
+        q = (q + 1) % s.num_tribes;
+    }
+    if (q == p) {  // Tribes: everyone else lost but not over; it re-checks, then restarts p's turn
+        update_game_over(s);
+    }
+    start_turn(s, q);
+    return true;
 }
 
 void apply_action(GameState& s, const Action& a, Chance& chance) {

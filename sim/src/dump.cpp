@@ -28,9 +28,10 @@ std::string name(std::string_view v) { return std::string(v); }
 
 class Dumper {
    public:
-    explicit Dumper(const GameState& s, int observer = -1)
+    Dumper(const GameState& s, int observer, const char* header)
         : s_(&s),
           observer_(observer),
+          header_(header),
           tiles_(static_cast<std::size_t>(s.side) * static_cast<std::size_t>(s.side)) {
         o_.reserve((tiles_ * 16) + 4096);
     }
@@ -53,10 +54,10 @@ class Dumper {
     }
 
     void header() {
-        o_ += (observer_ >= 0 ? "OBS" : "STATE") + std::string(" tick=") + str(s_->tick) +
-              " active=" + str(s_->active_tribe) + " over=" + bit(s_->game_over) +
-              " mustEnd=" + bit(s_->turn_must_end) + " levelingUp=" + bit(s_->leveling_up) +
-              " nextActorId=" + str(s_->next_actor_id) + " canEnd=";
+        o_ += header_ + std::string(" tick=") + str(s_->tick) + " active=" + str(s_->active_tribe) +
+              " over=" + bit(s_->game_over) + " mustEnd=" + bit(s_->turn_must_end) +
+              " levelingUp=" + bit(s_->leveling_up) + " nextActorId=" + str(s_->next_actor_id) +
+              " canEnd=";
         for (int t = 0; t < s_->num_tribes; ++t) {
             o_ += bit(((s_->can_end_turn >> t) & 1U) != 0);
         }
@@ -119,11 +120,16 @@ class Dumper {
             " pacifist=" + str(t.pacifist_count) + " starsSentTurn=" + str(t.stars_sent_this_turn) +
             " declaredWarTurn=" + bit(t.declared_war_this_turn) + " wars=" + str(t.wars_declared) +
             " starsSentTotal=" + str(t.stars_sent_total) + " monuments={";
-        // Monument names in enum order are also alphabetical, matching the oracle's sorted map.
-        const std::size_t shown = hidden ? 0 : kNumMonuments;  // the copy's map is empty
-        for (std::size_t m = 0; m < shown; ++m) {
-            o_ += (m > 0 ? ", " : "") + name(kBuildingName[kFirstMonument + m]) + '=' +
+        // Monument names in enum order are also alphabetical, matching the oracle's sorted map;
+        // Absent entries aren't in the map (another tribe's, in an observation).
+        bool first = true;
+        for (std::size_t m = 0; m < kNumMonuments; ++m) {
+            if (t.monuments[m] == MonumentStatus::Absent) {
+                continue;
+            }
+            o_ += (first ? "" : ", ") + name(kBuildingName[kFirstMonument + m]) + '=' +
                   name(kMonumentStatusName[static_cast<std::size_t>(t.monuments[m])]);
+            first = false;
         }
         o_ += "} allegiance=";
         std::vector<int> row;
@@ -219,16 +225,21 @@ class Dumper {
 
     const GameState* s_;
     int observer_;
+    const char* header_;
     std::size_t tiles_;
     std::string o_;
 };
 
 }  // namespace
 
-std::string dump_state(const GameState& s) { return Dumper(s).run(); }
+std::string dump_state(const GameState& s) { return Dumper(s, -1, "STATE").run(); }
 
 std::string dump_observation(const Observation& obs) {
-    return Dumper(obs.view(), obs.observer()).run();
+    return Dumper(obs.view(), obs.observer(), "OBS").run();
+}
+
+std::string dump_search_state(const GameState& s, int observer) {
+    return Dumper(s, observer, "PSTATE").run();
 }
 
 }  // namespace poly

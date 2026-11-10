@@ -6,7 +6,7 @@ fit as one corpus.
 
 A replay that stops at an unimplemented action type counts as a failure here (every type is implemented).
 
-Usage: difftest_batched.py N OUT_DIR [--batch=B] [--start=K] [--scenario=...] [--partial]
+Usage: difftest_batched.py N OUT_DIR [--batch=B] [--start=K] [--scenario=...] [--partial] [--probe=P]
 (repo root, after `make setup` and `make build`). Exit code 0 iff every game matched.
 """
 
@@ -20,6 +20,7 @@ from pathlib import Path
 SUMMARY = re.compile(r"(\d+) logs: (\d+) replayed to the end, (\d+) failures, (\d+) states, (\d+) "
                      r"legal-action sets and (\d+) observations matched")
 FAILED_LOG = re.compile(r"^(?:MISMATCH|ERROR) (\S+?):?(?: |$)", re.M)
+PROBES = re.compile(r"agent-side forward model \(04 §9\): (\d+) probes, (\d+) search states and (\d+) legal-action")
 
 
 def flag(name: str, default: int) -> int:
@@ -29,11 +30,13 @@ def flag(name: str, default: int) -> int:
 def main() -> int:
     n, out = int(sys.argv[1]), Path(sys.argv[2])
     batch, start = flag("batch", 32), flag("start", 0)
-    passthrough = [a for a in sys.argv[3:] if a.startswith("--scenario=") or a == "--partial"]
+    passthrough = [a for a in sys.argv[3:]
+                   if a.startswith(("--scenario=", "--probe=")) or a == "--partial"]
     work, failed = out / "batch", out / "failed"
     shutil.rmtree(out, ignore_errors=True)
     failed.mkdir(parents=True)
-    totals = {"games": 0, "complete": 0, "failures": 0, "states": 0, "legal": 0, "obs": 0}
+    totals = {"games": 0, "complete": 0, "failures": 0, "states": 0, "legal": 0, "obs": 0,
+              "probes": 0, "pstates": 0, "plegal": 0}
     t0 = time.time()
     for first in range(start, start + n, batch):
         size = min(batch, start + n - first)
@@ -47,6 +50,10 @@ def main() -> int:
             print(r.stdout + r.stderr, file=sys.stderr)
             raise RuntimeError(f"oracle_diff gave no summary for seeds {first}..{first + size - 1}")
         games, complete, failures, states, legal, obs = map(int, m.groups())
+        p = PROBES.search(r.stdout)
+        if p is not None:
+            for name, v in zip(("probes", "pstates", "plegal"), map(int, p.groups())):
+                totals[name] += v
         stopped = games - complete - failures  # stopped at an unimplemented action type
         for name, v in (("games", games), ("complete", complete), ("states", states), ("legal", legal),
                         ("obs", obs)):
@@ -67,6 +74,9 @@ def main() -> int:
     print(f"{totals['games']} games: {totals['complete']} replayed to the end, {totals['failures']} failures, "
           f"{totals['states']:,} states, {totals['legal']:,} legal-action sets and {totals['obs']:,} observations "
           "matched")
+    if totals["probes"]:
+        print(f"agent-side forward model (04 §9): {totals['probes']:,} probes, {totals['pstates']:,} search "
+              f"states and {totals['plegal']:,} legal-action sets matched")
     return 0 if totals["failures"] == 0 and totals["complete"] == totals["games"] else 1
 
 

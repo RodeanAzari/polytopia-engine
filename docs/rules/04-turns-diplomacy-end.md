@@ -9,9 +9,9 @@ Conventions as in sections 01–03b (**[Tribes quirk]**, **[Sim note]**). "Nativ
   result is no longer *incomplete* are skipped. The tick counter starts at 0 and increases after the last tribe
   id's slot, whether or not that tribe played.
 - **Native loop vs. Tribes' forward model** [Sim note]: the real game is driven by the game loop below. Tribes'
-  agent-side forward model (`advance`) behaves differently: it never increases the tick, and it executes the
-  End-turn command. Our simulator follows the game loop; the agent-side behaviour is irrelevant to difftests
-  (we replay logged actions on the native state).
+  agent-side forward model (`advance`) behaves differently (§9). The game is always played by the game loop;
+  §9 is what Tribes' search agents simulate, and our reimplemented baselines must simulate the same (ADR-002
+  amendment).
 
 ### 1.1 Game start (after map load)
 
@@ -161,7 +161,12 @@ games reach them, and the dump sorts foreign lists, so the order point is from t
 - A fogged tile's city id is 0 (Java's int default), not the native "no city" −1; its unit id is 0 as usual.
 - A visible foreign city keeps its **whole building list**, including buildings on tiles the observer can't see,
   with temple levels and counters.
-- Visible foreign actors are appended to their tribe's lists in actor-map (HashMap) order, not id order.
+- Visible foreign actors are appended to their tribe's lists in actor-map (HashMap) order, not id order:
+  ascending by (id mod C, id), where C is the native actor map's bucket count: 16, doubled whenever the
+  number of live cities + units exceeds 3/4 of it, never shrunk (ids only grow and are never re-inserted, so
+  insertion order within a bucket is id order). The dump sorts these lists, so the OBS difftest can't see the
+  order; the forward-model probes do (it decides the order of a hidden tribe's newly connected cities, §9).
+  [Assumed, not observed: no bucket ever holds ≥ 8 live actors, where Java would switch it to a tree.]
 - The actor-id counter is copied, so an agent can tell how many actors have ever been created.
 - Tiles owned by a foreign city on a hidden tile still show that city's id (the city itself is absent), and every
   tribe's capital id stays visible.
@@ -206,6 +211,33 @@ When over, tribes are ranked; the first gets *win*, every other tribe *loss*. Or
 every survivor is ranked first and **wins**, even when the game ended because only one tribe survived.
 
 **Elimination** (03b §3 step 8) sets a tribe to *lost* immediately; it is skipped in later turns.
+
+## 9. Agent-side forward model (what Tribes' search agents simulate)
+
+Search agents (OSLA, MC, MCTS, RHEA) copy the observation they are given (§7) and step the copy with
+`advance`. The copy is a full copy of the observation: nothing further is hidden or restored. Its random
+outcomes come from the copy's own RNG (unseeded in Tribes [quirk]; ours: the agent's seeded RNG). One step:
+
+- **Not End turn:** execute the action exactly as the game loop does (03a/03b), then recompute the active
+  tribe's legal actions (§5). **No game-over check** [differs from §2]: a capture of the last capital or an
+  elimination does not end the simulated game until the next End turn.
+- **End turn** by the active tribe P: only if P can end its turn (not while a level-up is pending, §5);
+  otherwise nothing happens. When it executes:
+  1. mark the turn as ending;
+  2. turn end for P (§4);
+  3. game-over check (§8, including ranking and the turn limit "tick > limit"), on the copy;
+  4. if not over: the next tribe is the first id after P, cyclically, whose result is **not Loss** [differs
+     from §1, which skips every non-incomplete tribe], and **the tick does not change** [differs from §1];
+  5. turn start for that tribe (§3) at the unchanged tick (so tick-0 rules apply again within tick 0), which
+     also clears the turn-ending mark; then its legal actions (§5).
+- Consequences: in a search the turn limit can only end a game whose tick is already past it, and tick-based
+  quantities (e.g. MC's ⌊tick/2⌋ research, agents sheet 03) never advance. Turn start for an opponent runs on
+  the opponent's hidden fields as the copy has them (stars 0, city list = its visible cities only, §7).
+- A step with an action that can't execute (not feasible in the copy) changes nothing (every Tribes action
+  checks feasibility before acting), and **the legal actions are not recomputed**: the copy keeps its
+  previous list, stale (Tribes recomputes only after an executed action). This happens at the root of a search:
+  its actions are the environment's legal set, computed on the true state, but executed on the copy, where
+  e.g. crops are masked without Organization, so a Zebasi Farm (Farming is its starting tech) is a no-op.
 
 ## Resolved
 - 02: diplomacy repercussion for attacking (§6.2).

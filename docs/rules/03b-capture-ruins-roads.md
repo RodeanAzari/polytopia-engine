@@ -3,7 +3,8 @@
 Source: Tribes at commit `270e7e5`, read for facts only (ADR-002). Wording, structure and naming here are ours.
 Conventions as in sections 01–03a (**[Tribes quirk]**, **[Sim note]**, neighbourhood order x-major then y).
 "Native" = the real game state; Tribes agents search on *non-native* copies, which behave differently in a
-few places (marked). Our simulator is always native.
+few places (marked): elimination (§3 step 8) and network recomputation scope (§10). Our states are native
+except an observation and anything simulated from it (`GameState::native = false`; 04 §9).
 
 ## 0. Observability mode of this commit (read first)
 

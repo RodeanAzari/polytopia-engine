@@ -3,7 +3,7 @@
 // "MindBender" agent (MindBenderAgent.java) for the mindbender scenario.
 //
 // Usage: OracleLog <levelSeed> <gameSeed> <agentSeed> <Capitals|Score> <players,...> <tribes,...>
-//                  [--no-states|--init-only] [--scenario=mindbender]
+//                  [--no-states|--init-only] [--scenario=mindbender] [--probe=N]
 
 import core.Types;
 import core.game.OracleDriver;
@@ -23,12 +23,14 @@ public class OracleLog {
                 flag = args[i];
             } else if (args[i].equals("--scenario=mindbender")) {
                 scenario = "mindbender";
+            } else if (args[i].startsWith("--probe=")) {
+                core.game.OracleDriver.probeEvery = Integer.parseInt(args[i].substring(8));
             } else {
                 ok = false;
             }
         }
         if (!ok) {
-            System.err.println("usage: OracleLog <levelSeed> <gameSeed> <agentSeed> <Capitals|Score> <players,...> <tribes,...> [--no-states|--init-only] [--scenario=mindbender]");
+            System.err.println("usage: OracleLog <levelSeed> <gameSeed> <agentSeed> <Capitals|Score> <players,...> <tribes,...> [--no-states|--init-only] [--scenario=mindbender] [--probe=N]");
             System.exit(2);
         }
         long levelSeed = Long.parseLong(args[0]);

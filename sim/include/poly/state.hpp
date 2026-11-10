@@ -107,7 +107,14 @@ struct GameState {
     bool turn_must_end = false;
     bool leveling_up = false;
     std::uint8_t can_end_turn = 0;  // bit per tribe
+    // false in an agent's observation and everything simulated from it: Tribes' non-native copies,
+    // which skip other tribes' network updates and elimination (03b §3 step 8, §10)
+    bool native = true;
     std::int32_t next_actor_id = 1;
+    // Bucket count of Tribes' native actor map (java.util.HashMap: 16, doubled whenever the live
+    // city + unit count exceeds 3/4 of it, never shrunk). Its iteration order, (id mod this, then
+    // id), is the order an observation lists another tribe's visible actors in (04 §7).
+    std::int32_t actor_map_capacity = 16;
 
     // --- board (structure of arrays, index x * side + y) ---
     std::array<Terrain, kMaxTiles> terrain{};

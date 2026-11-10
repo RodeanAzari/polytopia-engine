@@ -150,6 +150,9 @@ void apply_connections(GameState& s, int p, const std::array<std::int16_t, kMaxT
 }  // namespace
 
 void recompute_network_tribe(GameState& s, int p) {
+    if (!s.native && p != s.active_tribe) {
+        return;  // non-native copy: only the active tribe's network is updated (03b §10)
+    }
     TribeState& t = s.tribes[static_cast<std::size_t>(p)];
     if (t.capital == kNoSlot || !t.cities.contains(t.capital)) {
         t.connected.clear();  // no population changes in this branch (Tribes fact, 03a §6)

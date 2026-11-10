@@ -16,4 +16,8 @@ std::string dump_state(const GameState& s);
 // tile's city id 0 (Java's default, not -1); ghost cities (tribe -1) are not listed.
 std::string dump_observation(const Observation& obs);
 
+// A search state stepped from tribe `observer`'s observation (agent_advance), in the OBS schema
+// with a "PSTATE" header: the oracle's probe dump (04 §9).
+std::string dump_search_state(const GameState& s, int observer);
+
 }  // namespace poly
