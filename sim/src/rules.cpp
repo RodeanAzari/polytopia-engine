@@ -1658,13 +1658,26 @@ void end_turn(GameState& s) {
 }
 
 bool agent_advance(GameState& s, const Action& a, Chance& chance) {
+    if (a.type == ActionType::EndTurn) {
+        return agent_advance(s, a, chance, {});
+    }
+    ActionList legal;
+    legal_actions(s, legal);
+    return agent_advance(s, a, chance, {legal.begin(), legal.end()});
+}
+
+bool agent_advance(GameState& s, const Action& a, Chance& chance,
+                   std::span<const Action> legal_in_s) {
     if (a.type != ActionType::EndTurn) {
+#ifndef NDEBUG
+        ActionList fresh;
+        legal_actions(s, fresh);
+        check(std::ranges::equal(fresh, legal_in_s), "agent_advance: list isn't s's legal set");
+#endif
         // An action that isn't legal in the copy doesn't execute (04 §9). Only an agent's root
         // actions can be: they are the environment's legal set, and the copy masks some facts (e.g.
         // crops without Organization, 04 §7).
-        ActionList legal;
-        legal_actions(s, legal);
-        if (std::ranges::find(legal, a) == legal.end()) {
+        if (std::ranges::find(legal_in_s, a) == legal_in_s.end()) {
             return false;
         }
         apply_action(s, a, chance);

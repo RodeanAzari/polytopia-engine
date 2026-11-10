@@ -3,6 +3,8 @@
 // Turn flow and action execution (rule facts 03a, 03b, 04). Legality is checked with poly::check:
 // an illegal action aborts loudly; callers are expected to pass generated (legal) actions.
 
+#include <span>
+
 #include "poly/action.hpp"
 #include "poly/chance.hpp"
 #include "poly/inline_vector.hpp"
@@ -42,6 +44,10 @@ void apply_action(GameState& s, const Action& a, Chance& chance);
 // whether it executed: when it didn't, Tribes keeps the copy's previous legal-action list (stale;
 // at a search root, the environment's), so the caller must keep its list rather than recompute.
 bool agent_advance(GameState& s, const Action& a, Chance& chance);
+// The same, with s's own legal set (exactly legal_actions(s)) supplied by the caller, which
+// saves generating it again (a search usually has it). Unused for End turn. Checked in Debug.
+bool agent_advance(GameState& s, const Action& a, Chance& chance,
+                   std::span<const Action> legal_in_s);
 
 // The active tribe's legal actions (04 §5), in Tribes' generation order: cities (city list order),
 // then units (city units, then tribe-owned units), then tribe actions. A city that can level up

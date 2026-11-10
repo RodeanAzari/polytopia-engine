@@ -13,6 +13,8 @@ Action OslaAgent::act(const Observation& obs, std::span<const Action> legal) {
         return legal[0];
     }
     const GameState& root = obs.view();
+    legal_actions(root, root_fresh_);
+    const std::span<const Action> fresh(root_fresh_.begin(), root_fresh_.end());
     Action best{.type = ActionType::EndTurn, .actor = obs.observer()};
     double best_value = -std::numeric_limits<double>::infinity();
     int applied = 0;
@@ -25,7 +27,7 @@ Action OslaAgent::act(const Observation& obs, std::span<const Action> legal) {
             break;
         }
         GameState next = root;
-        agent_advance(next, a, chance_);  // a no-op if not legal in the observation
+        agent_advance(next, a, chance_, fresh);  // a no-op if not legal in the observation
         ++applied;
         const double value = noisy(diff_heuristic(root, next, obs.observer()), rng_);
         if (value > best_value) {

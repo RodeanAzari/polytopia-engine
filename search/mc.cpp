@@ -68,19 +68,23 @@ double McAgent::rollout(const GameState& root, int player, std::span<const Actio
     static_assert(kDepth < 21, "forced End Turn would trigger: model the countdown (03 §2.2)");
     GameState s = root;
     guess_opponent_techs(s, player, chance_);
+    legal_actions(s, fresh_);  // the copy's own set; legal_ is Tribes' cached (stale) list
+    bool unchanged = true;     // no action executed yet: fresh_ is s's legal set
     legal_.clear();
     for (const Action& a : root_legal) {
         legal_.push_back(a);
     }
     Action a = first;
     for (int step = 1;; ++step) {
-        const bool executed = agent_advance(s, a, chance_);
+        const ActionList& in_s = unchanged ? fresh_ : legal_;
+        const bool executed = agent_advance(s, a, chance_, {in_s.begin(), in_s.end()});
         ++fm_calls_;
         if (s.game_over || step == kDepth || fm_calls_ >= kBudget) {
             break;
         }
         if (executed) {  // else Tribes keeps the stale list (rules 04 §9)
             legal_actions(s, legal_);
+            unchanged = false;
         }
         check(!legal_.empty(), "mc rollout: no legal action in a running game");
         a = legal_.size() == 1 ? legal_[0] : draw_not_end_turn(legal_, rng_);

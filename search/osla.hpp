@@ -9,6 +9,7 @@
 
 #include "poly/chance.hpp"
 #include "poly/rng.hpp"
+#include "poly/rules.hpp"
 #include "search/agent.hpp"
 
 namespace poly::search {
@@ -22,8 +23,9 @@ class OslaAgent final : public Agent {
     Action act(const Observation& obs, std::span<const Action> legal) override;
 
    private:
-    Rng rng_;               // tie-break noise
-    SampledChance chance_;  // random outcomes inside the search
+    Rng rng_;                // tie-break noise
+    SampledChance chance_;   // random outcomes inside the search
+    ActionList root_fresh_;  // the copy's own legal set (agent_advance's membership check)
 };
 
 }  // namespace poly::search

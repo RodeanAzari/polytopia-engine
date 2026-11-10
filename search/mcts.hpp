@@ -25,6 +25,7 @@ struct MctsNode {
     double total = 0.0;
     double lo = 0.0;  // min and max of the values backed up through this node (02 §2)
     double hi = 0.0;
+    bool root_state = true;  // no action executed on the path: the state equals the root's
 };
 
 struct MctsSlot {
@@ -84,6 +85,7 @@ class MctsAgent final : public Agent {
     std::vector<Action> stale_;       // a no-op child's inherited list
     std::vector<ChildStats> scratch_;
     ActionList legal_;
+    ActionList root_fresh_;  // the root copy's own legal set
 };
 
 }  // namespace poly::search

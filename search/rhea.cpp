@@ -46,7 +46,8 @@ Action RheaAgent::random_action(const Sim& sim) {
 void RheaAgent::apply(Sim& sim, const Action& a) {
     ++fm_calls_;
     ++sim.applied;
-    if (agent_advance(sim.s, a, chance_)) {
+    const ActionList& in_s = sim.at_root ? root_fresh_ : sim.cached;
+    if (agent_advance(sim.s, a, chance_, {in_s.begin(), in_s.end()})) {
         legal_actions(sim.s, sim.cached);
         sim.at_root = false;
     }

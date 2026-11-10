@@ -36,6 +36,7 @@ class McAgent final : public Agent {
     int fm_calls_ = 0;
     std::vector<Action> candidates_;
     ActionList legal_;
+    ActionList fresh_;
 };
 
 // 03 §2.2 step 1: every tribe but `player` researches ⌊tick / 2⌋ random techs (no cost, no score),

@@ -94,7 +94,18 @@ std::int32_t MctsAgent::expand(std::int32_t node, std::span<const Action> root_l
     const auto child_index = static_cast<std::size_t>(nodes_.size());
     GameState& s = states_[child_index];
     s = states_[static_cast<std::size_t>(node)];
-    const bool executed = agent_advance(s, slots_[static_cast<std::size_t>(slot)].action, chance_);
+    // s's legal set for the membership check: the root copy's own, or the node's list (not stale
+    // once an action has executed on the path).
+    std::span<const Action> in_s(root_fresh_.begin(), root_fresh_.end());
+    if (!n.root_state) {
+        stale_.clear();
+        for (const MctsSlot& sl : slots(n)) {
+            stale_.push_back(sl.action);
+        }
+        in_s = stale_;
+    }
+    const bool executed =
+        agent_advance(s, slots_[static_cast<std::size_t>(slot)].action, chance_, in_s);
     ++fm_calls_;
     std::span<const Action> actions;
     if (executed) {
@@ -109,7 +120,9 @@ std::int32_t MctsAgent::expand(std::int32_t node, std::span<const Action> root_l
         }
         actions = stale_;
     }
+    const bool root_state = nodes_[static_cast<std::size_t>(node)].root_state && !executed;
     const std::int32_t child = add_node(node, actions);
+    nodes_[static_cast<std::size_t>(child)].root_state = root_state;
     slots_[static_cast<std::size_t>(slot)].child = child;
     ++nodes_[static_cast<std::size_t>(node)].expanded;
     return child;
@@ -129,6 +142,7 @@ Action MctsAgent::act(const Observation& obs, std::span<const Action> legal) {
     player_ = obs.observer();
     const GameState& root = obs.view();
     states_[0] = root;
+    legal_actions(root, root_fresh_);
     add_node(-1, candidates_);
     while (fm_calls_ <= kBudget) {
         // Selection (02 §2): descend fully expanded nodes by UCT until a node can be expanded.
