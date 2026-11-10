@@ -4,6 +4,7 @@
 
 #include "poly/rules.hpp"
 #include "search/diff_heuristic.hpp"
+#include "search/noise.hpp"
 
 namespace poly::search {
 
@@ -26,10 +27,7 @@ Action OslaAgent::act(const Observation& obs, std::span<const Action> legal) {
         GameState next = root;
         agent_advance(next, a, chance_);  // a no-op if not legal in the observation
         ++applied;
-        constexpr double kEps = 1e-6;
-        const double r = static_cast<double>(rng_.next() >> 11U) * 0x1.0p-53;  // [0, 1)
-        const double value =
-            (diff_heuristic(root, next, obs.observer()) + kEps) * (1.0 + (kEps * (r - 0.5)));
+        const double value = noisy(diff_heuristic(root, next, obs.observer()), rng_);
         if (value > best_value) {
             best = a;
             best_value = value;
