@@ -16,14 +16,19 @@ baseline round-robin table.
 ### Done (2026-11-09/10; detail in `docs/notebook/2026-11-09.md`, `2026-11-10.md`)
 - ADR-007, agent facts sheets 01–05, rule facts 04 §9 + `agent_advance`; final probe difftest 520 games, 0 failures.
 - `search/`: tournament runner; Random, Rule Based (agrees with every Tribes RB decision), Diff heuristic,
-  OSLA, MC (+ root groups), MCTS. `make tournament AGENTS=Random,RuleBased,OSLA,MC,MCTS`.
+  OSLA, MC (+ root groups), MCTS, RHEA; agents pass their legal set to agent_advance (1.97× faster).
+
+### In flight
+- **Our validation round-robin** `ours-rr-20261110` (started 2026-11-10 ~13:30, 7,500 games, 8 jobs, est. 6–7 h;
+  git 9bfae75). Resume = rerun: `build/release/tournament --levels=build/levels/paper-25
+  --agents=Random,RuleBased,OSLA,MC,MCTS,RHEA --reps=10 --obs=full --id=ours-rr-20261110
+  --out=data/results/ours-rr-20261110.csv --jobs=8`; summary: `python3 oracle/scripts/tournament_summary.py <csv>`.
 
 ### Next
-1. RHEA (sheet 04), on `agent_advance` (stale legal list on a no-op).
-2. Validate OSLA/MC/MCTS/RHEA statistically vs. Tribes (ADR-007 §6.3), then the 500/pair paper replication.
-3. Profile MC/MCTS (up to ~100 s/game): `agent_advance`'s per-step legal-set check + our own legal_actions = 2 generations
-   per step (Rule 12: measure first).
-4. dev/test seed lists (ADR-007 §2) before any Phase 3 tuning.
+1. Evaluate `ours-rr-20261110` against ADR-007 §6 (1: beat Random ≥ 95% lower bound; 2: no reversed direction on
+   Tribes-resolved pairs; 3: per-pair interval overlap with tribes-rr-20261108). A failing pair = investigate
+   as a reimplementation bug first. Then the Phase 2 media (round-robin table) and portfolio note.
+2. dev/test seed lists (ADR-007 §2) before any Phase 3 tuning.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
