@@ -9,30 +9,23 @@ encoding (ADR-006). Detail: README, `docs/notebook/2026-11-0[5-8].md`, ADR-001�
 DoD (docs/buildplan.md §11): MCTS and RHEA reimplemented; the paper's win-rate pattern reproduced; media =
 baseline round-robin table.
 
-### In flight (left running at end of session 2026-11-09)
-- **Tribes reference round-robin** `tribes-rr-20261108` (~620/750 at session end). Resumable: rerun
-  `.venv/bin/python oracle/scripts/tribes_tournament.py --jobs=6 --xmx=1g --out=data/results/tribes-rr-20261108.csv`;
-  summary → `.md` next to it. 50 games/pair (paper: 500); it is the cross-check for our agents (user, 2026-11-08).
-- **Final forward-model probe difftest** on commit `4918240` (binary frozen; sha in `build/fm-final.sha`), 4 configs
-  sequentially: `build/fm-full.out` (200 games), `fm-po.out` (200, partial), `fm-mb.out` / `fm-mb-po.out` (60 each).
-  `build/fm-final.status` lists exit codes and the binary checksum. At session end: full obs 152/152 so far.
-  Record the totals in the notebook + 04 §9; any failure = a non-native rule still diverging.
+### In flight
+- **Tribes reference round-robin** `tribes-rr-20261108` (701/750 at 2026-11-10 01:00, search-vs-search pairs, slow).
+  Resumable: `.venv/bin/python oracle/scripts/tribes_tournament.py --jobs=6 --xmx=1g
+  --out=data/results/tribes-rr-20261108.csv`; summary → `.md` next to it. 50 games/pair (paper: 500).
 
-### Done this session (2026-11-09; detail in `docs/notebook/2026-11-09.md`)
-- ADR-007 evaluation protocol accepted. Agent facts sheets `docs/agents/01`–`05`.
-- Rule facts 04 §9 (Tribes' agent-side forward model) + `poly::agent_advance` + probe difftest (`make
-  difftest-fm`, in CI); 7 non-native rule divergences found and fixed (GameState::native, actor-map order,
-  fog owner, ghost meetings, naval fog cost, stale legal list after a no-op, absent monuments).
-- `search/` + `make tournament` (ADR-007 runner), Random and Rule Based. RB agrees with every Tribes RB decision
-  (44,764 full + 22,744 partial obs). RB vs Random on our sim: 500-0-0 (99.2–100%); Tribes 49/50.
+### Done (2026-11-09/10; detail in `docs/notebook/2026-11-09.md`, `2026-11-10.md`)
+- ADR-007, agent facts sheets 01–05, rule facts 04 §9 + `agent_advance`; final probe difftest 520 games, 0 failures.
+- `search/`: tournament runner; Random, Rule Based (agrees with every Tribes RB decision), Diff heuristic,
+  OSLA, MC (+ root groups). `make tournament AGENTS=Random,RuleBased,OSLA,MC`.
 
 ### Next
-1. Record the final probe-difftest totals and the Tribes round-robin summary (`tribes-rr-20261108.md`).
-2. Diff heuristic (sheet 01 §4, unit tests per term/quirk) on the observation, then OSLA, MC (sheet 03), MCTS
-   (sheet 02), RHEA (sheet 04), all simulating with `agent_advance` (keep the stale legal list on a no-op).
-   Validate each statistically vs. its Tribes counterpart (ADR-007 §6.3), then the 500/pair paper replication.
-3. Measure `agent_advance`'s per-step legal-set membership check once a search agent exists (Rule 12).
-4. dev/test seed lists (ADR-007 §2) before any Phase 3 tuning.
+1. Tribes round-robin summary (`tribes-rr-20261108.md`) once it finishes.
+2. MCTS (sheet 02), then RHEA (sheet 04), on `agent_advance` (stale legal list on a no-op).
+3. Validate OSLA/MC/MCTS/RHEA statistically vs. Tribes (ADR-007 §6.3), then the 500/pair paper replication.
+4. Profile MC (22–65 s/game): `agent_advance`'s per-step legal-set check + our own legal_actions = 2 generations
+   per step (Rule 12: measure first).
+5. dev/test seed lists (ADR-007 §2) before any Phase 3 tuning.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
