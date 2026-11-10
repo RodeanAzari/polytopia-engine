@@ -1358,6 +1358,8 @@ void rank_tribes(GameState& s) {
     for (std::size_t r = 0; r < n; ++r) {
         s.tribes[static_cast<std::size_t>(ranked[r])].result = r == 0 ? Result::Win : Result::Loss;
     }
+    s.ranking_tied = n > 1 && key[static_cast<std::size_t>(ranked[0])] ==
+                                  key[static_cast<std::size_t>(ranked[1])];
 }
 
 // ---- action generation (04 §5) ----
@@ -1543,6 +1545,13 @@ void legal_actions(const GameState& s, ActionList& out) {
     for_each_unit_of(s, p, [&](Slot u) { unit_actions(s, u, out); });
     tribe_actions(s, p, out);
     out.push_back({.type = ActionType::EndTurn, .actor = p});
+}
+
+int city_production(const City& c) { return production(c); }
+
+void heal_targets(const GameState& s, Slot u, HealTargets& out) {
+    out.clear();
+    for_each_heal_target(s, u, [&](Slot t) { out.push_back(t); });
 }
 
 Slot city_by_id(const GameState& s, std::int32_t id) {

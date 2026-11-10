@@ -76,7 +76,8 @@ Term definitions (all read from the respective state as the agent's copy has the
 
 ### 4.3 Consequences of the observation (not extra rules; they follow from 04 §7)
 - Other tribes' kills, tech tree, city list and city-attached units are hidden (zero/empty) in the agent's copy;
-  their visible cities show production 0. So opponents' d_i comes mostly from score, plus whatever changes
+  their visible cities have production bonus 0 (production = level + capital bonus). So opponents' d_i
+  comes mostly from score, the levels and production of their visible cities, plus whatever changes
   inside the search (techs researched or cities captured by the opponent after End Turn in the tree).
 - Full obs: every vision grid is all-true, so the visible-tiles term is always 0.
 - Partial obs: opponents' grids are all-true in the copy. If S′ has an opponent active (after End Turn) and S

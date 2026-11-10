@@ -26,6 +26,7 @@
 #include "poly/level.hpp"
 #include "poly/observation.hpp"
 #include "poly/rules.hpp"
+#include "search/rule_based.hpp"
 
 namespace {
 
@@ -301,6 +302,7 @@ struct Outcome {
     int probes = 0;          // probes (04 §9) replayed to PROBEEND
     int probe_states = 0;    // probe states compared and equal
     int probe_action_sets = 0;
+    int rule_based = 0;      // Tribes Rule Based decisions in our best-score set (agents sheet 05)
     std::string stopped_at;  // first unimplemented action type, if any
     std::string detail;      // where and how the first mismatch happened
 };
@@ -340,6 +342,8 @@ class Replay {
             if (scenario_ != "mindbender") {
                 throw std::runtime_error("unknown scenario: " + scenario_);
             }
+        } else if (line.starts_with("SEAT ")) {
+            seat(line);
         } else if (line.starts_with("RAND ")) {
             draw(line, draws_);
         } else if (line.starts_with("PROBE ")) {
@@ -469,12 +473,46 @@ class Replay {
     }
 
     // The action runs when its STATE arrives, so the draws logged in between are available.
+    // SEAT <tribeId> <tribeType> <playerIndex> [<agent class>]
+    void seat(const std::string& line) {
+        const auto t = tokens(line);
+        if (t.size() >= 5) {
+            agent_.at(static_cast<std::size_t>(std::stoi(t[1]))) = t[4];
+        }
+    }
+
+    // Tribes' Rule Based agent chose `a` (agents sheet 05): it must score best among our legal set
+    // (legal_, just compared with the oracle's) on the observation (just compared too).
+    bool check_rule_based(const poly::Action& a, const std::string& text) {
+        const poly::Observation obs = poly::observe(s_, s_.active_tribe);
+        long long converts = 0;
+        int best = -1;
+        for (const poly::Action& b : legal_) {
+            best = std::max(best, poly::search::rule_based_score(obs, b, converts));
+        }
+        const int chosen = poly::search::rule_based_score(obs, a, converts);
+        if (chosen != best) {
+            out_.detail = "  Rule Based chose " + text + " (our score " + std::to_string(chosen) +
+                          ", our best " + std::to_string(best) + "), " + event_ + " (state " +
+                          std::to_string(out_.states) + ")\n";
+            return false;
+        }
+        ++out_.rule_based;
+        return true;
+    }
+
     bool act(const std::string& text) {
         const auto a = parse_action(text);
         if (!a) {
             out_.stopped_at = tokens(text).at(0);
             return false;
         }
+        if (decision_ && agent_.at(static_cast<std::size_t>(s_.active_tribe)) == "SimpleAgent" &&
+            !check_rule_based(*a, text)) {
+            out_.failed = true;
+            return false;
+        }
+        decision_ = false;
         action_ = *a;
         pending_ = a->type == poly::ActionType::EndTurn ? Pending::TurnEnd : Pending::Action;
         event_ = "after " + text;
@@ -622,6 +660,7 @@ class Replay {
             return false;
         }
         ++out_.observations;
+        decision_ = true;  // the next ACT is this agent's decision
         return true;
     }
 
@@ -650,6 +689,8 @@ class Replay {
     std::vector<std::string> level_;
     std::string scenario_;  // SETUP line, applied right after map load
     poly::GameState s_{};
+    std::array<std::string, poly::kMaxTribes> agent_{};  // SEAT: Tribes agent class per tribe
+    bool decision_ = false;
     poly::GameState probe_{};  // 04 §9 search copy
     int probe_observer_ = -1;
     int probe_step_ = 0;
@@ -688,6 +729,7 @@ int main(int argc, char** argv) {
     long long probes = 0;
     long long probe_states = 0;
     long long probe_action_sets = 0;
+    long long rule_based = 0;
     std::map<std::string, int> stops;
     for (const std::string& path : paths) {
         try {
@@ -702,6 +744,7 @@ int main(int argc, char** argv) {
             probes += r.probes;
             probe_states += r.probe_states;
             probe_action_sets += r.probe_action_sets;
+            rule_based += r.rule_based;
             if (r.failed) {
                 ++failures;
                 std::cerr << "MISMATCH " << path << '\n' << r.detail;
@@ -718,6 +761,10 @@ int main(int argc, char** argv) {
     std::cout << paths.size() << " logs: " << complete << " replayed to the end, " << failures
               << " failures, " << states << " states, " << action_sets << " legal-action sets and "
               << observations << " observations matched\n";
+    if (rule_based > 0) {
+        std::cout << "  Rule Based (agents sheet 05): " << rule_based
+                  << " decisions in our best-score set\n";
+    }
     if (probes > 0) {
         std::cout << "  agent-side forward model (04 §9): " << probes << " probes, " << probe_states
                   << " search states and " << probe_action_sets << " legal-action sets matched\n";

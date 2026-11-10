@@ -25,7 +25,8 @@ void end_turn(GameState& s);
 // mode ends when tick > the turn limit. When over, tribes are ranked and the first gets Win, the
 // rest Loss. Sets and returns s.game_over. Callers run it after every action and turn end, and
 // before each tick; it is not part of apply_action because Tribes' loop runs it after the action.
-// Exact ties in all ranking criteria are broken by tribe id here; Tribes uses an unseeded coin.
+// Exact ties in all ranking criteria are broken by tribe id here (and s.ranking_tied is set);
+// Tribes uses an unseeded coin.
 bool update_game_over(GameState& s);
 
 // Executes a non-End-turn action of the active tribe, then refreshes the action-derived flags.
@@ -50,6 +51,15 @@ bool agent_advance(GameState& s, const Action& a, Chance& chance);
 inline constexpr int kMaxActions = 4096;  // most seen in 140 oracle games: 829
 using ActionList = InlineVector<Action, kMaxActions>;
 void legal_actions(const GameState& s, ActionList& out);
+
+// A city's production (03a §1): level + production bonus + capital bonus, or its population when
+// negative. Raw: no occupation penalty, no clamp.
+int city_production(const City& c);
+
+// Unit u's Heal-others targets (03b §7): its own tribe's units within its range, below max HP.
+inline constexpr int kMaxHealTargets = 24;
+using HealTargets = InlineVector<Slot, kMaxHealTargets>;
+void heal_targets(const GameState& s, Slot u, HealTargets& out);
 
 // Slot of the city / unit with the given Tribes actor id; aborts if there is none.
 Slot city_by_id(const GameState& s, std::int32_t id);

@@ -127,7 +127,7 @@ test: build
 	ctest --test-dir build/debug --output-on-failure
 
 tidy: build
-	clang-tidy -p build/release --quiet $(shell find sim tests tools -name '*.cpp')
+	clang-tidy -p build/release --quiet $(shell find sim search tests tools -name '*.cpp')
 
 format:
 	clang-format -i $(shell find sim search selfplay tests tools -name '*.hpp' -o -name '*.cpp')
@@ -137,5 +137,20 @@ ci: test tidy
 clean:
 	rm -rf build
 
-tournament selfplay train:
+# Round-robin of our agents on our simulator (ADR-007): seat-swapped pairs, REPS per level and
+# seating. Levels come from Tribes' generator (export_levels.py -> build/levels/, never committed).
+# -> data/results/$(ID).csv and .md (W/D/L, Wilson 95%). Resumable: rerun the same command.
+AGENTS ?= Random,RuleBased
+REPS ?= 10
+SEEDS ?= data/seeds/paper-25.txt
+ID ?= ours-$(OBS)-$(shell date +%Y%m%d)
+LEVELS := build/levels/$(basename $(notdir $(SEEDS)))
+tournament: build
+	test -d $(LEVELS) || python3 oracle/scripts/export_levels.py $(SEEDS) $(LEVELS)
+	build/release/tournament --levels=$(LEVELS) --agents=$(AGENTS) --reps=$(REPS) --obs=$(OBS) \
+	  --id=$(ID) --out=data/results/$(ID).csv --jobs=$(JOBS)
+	python3 oracle/scripts/tournament_summary.py data/results/$(ID).csv \
+	  "--command=make tournament AGENTS=$(AGENTS) REPS=$(REPS) SEEDS=$(SEEDS) OBS=$(OBS) ID=$(ID)"
+
+selfplay train:
 	@echo "make $@: not implemented yet" >&2; exit 1

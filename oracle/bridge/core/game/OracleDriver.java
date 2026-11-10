@@ -5,7 +5,7 @@
 // Log lines (one record per line, space-separated; our schema, not Tribes' savegame format):
 //   GAME <levelSeed> <gameSeed> <mode> <fullObs 0|1>
 //   LEVEL <n>, then n lines of the generated level
-//   SEAT <tribeId> <tribeType> <playerIndex>
+//   SEAT <tribeId> <tribeType> <playerIndex> <agent class>
 //   SETUP <scenario>                               state edits applied after map load (see applyScenario)
 //   RAND <caller> <method> <bound|-> <value>       every draw on the game RNG, in order
 //   TURN <tick> <tribeId>                          before turn start
@@ -183,7 +183,7 @@ public final class OracleDriver {
             for (int i = 0; i < tribes.length; ++i) if (tribes[i] == tt[id].getType()) req = i;
             players[id] = agentsByRequest[req];
             players[id].setPlayerIDs(id, allIds);
-            out.println("SEAT " + id + " " + tt[id].getType() + " " + req);
+            out.println("SEAT " + id + " " + tt[id].getType() + " " + req + " " + players[id].getClass().getSimpleName());
         }
         if (!scenario.isEmpty()) {
             applyScenario(gs, scenario);
