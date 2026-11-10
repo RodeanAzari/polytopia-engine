@@ -10,7 +10,7 @@ DoD (docs/buildplan.md §11): MCTS and RHEA reimplemented; the paper's win-rate 
 baseline round-robin table.
 
 ### In flight (2026-11-08)
-- **Tribes reference round-robin running** (started ~14:30): `oracle/scripts/tribes_tournament.py --jobs=6
+- **Tribes reference round-robin running** (started 2026-11-08 ~14:30; stopped at 412/750, resumed 2026-11-09): `oracle/scripts/tribes_tournament.py --jobs=6
   --xmx=1g --out=data/results/tribes-rr-20261108.csv` (Random, Rule Based, OSLA, MC, MCTS, RHEA; 15 pairs × 25 stock
   level seeds × 2 seatings = 750 games; est. 6–8 h). Resumable: rerun the same command, finished games are skipped.
   Summary → `data/results/tribes-rr-20261108.md` (Wilson CIs per agent and pair). Search games: 270–670 s each.
@@ -22,7 +22,8 @@ baseline round-robin table.
 ### Next
 1. **Decided (user, 2026-11-08):** the 500-games-per-pair paper replication runs on our C++ sim once the agents
    are reimplemented; the 50/pair Tribes run (`tribes-rr-20261108`) is the cross-check that ours match Tribes'.
-2. ADR-007 evaluation protocol (round-robin, seat swaps, fixed seeds, Wilson CIs, SPRT for engine changes).
+2. **ADR-007 evaluation protocol: accepted (user, 2026-11-09).** Seat-swapped pairs, paper-25/dev/test seed lists,
+   full-key ties = draws, Paper/Fog/Spread conditions, pentanomial SPRT [0, 20] Elo; Phase 2 pass criteria fixed (§6).
 3. Agent facts sheet (`docs/agents/`): Tribes' Diff heuristic (read: 5·production + 4·techs + 0.1·score +
    4·cities + 2·units + 3·kills + 2·city levels, as deltas vs. the root state, own minus mean of others, plus own
    connected cities and visible tiles), MCTS, RHEA, Rule Based, facts-only per the ADR-002
