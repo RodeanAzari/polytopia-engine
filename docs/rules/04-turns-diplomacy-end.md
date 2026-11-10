@@ -238,6 +238,10 @@ outcomes come from the copy's own RNG (unseeded in Tribes [quirk]; ours: the age
   previous list, stale (Tribes recomputes only after an executed action). This happens at the root of a search:
   its actions are the environment's legal set, computed on the true state, but executed on the copy, where
   e.g. crops are masked without Organization, so a Zebasi Farm (Farming is its starting tech) is a no-op.
+- **Verified** (probe difftest, `oracle_diff` sha256 967c8a78…, commit 4918240, 30 steps every 25th decision):
+  full obs 200 games, 15,841 probes, 475,230 search states; partial 200 games, 16,154 probes, 484,606 states;
+  Mind Bender full 60 games, 1,486 probes, 44,580 states; Mind Bender partial 60 games, 1,473 probes, 44,190
+  states. Every state and legal set matched, 0 failures (`build/fm-*.out`, 2026-11-10).
 
 ## Resolved
 - 02: diplomacy repercussion for attacking (§6.2).
