@@ -5,29 +5,23 @@ Rule-facts sheet 01–05; C++ simulator bit-exact vs. Tribes (1,000/1,000 replay
 Bender scenario); agent observation = Tribes' agent copy; `make bench` 5.3–6.3× Tribes; replay viewer; action
 encoding (ADR-006). Detail: README, `docs/notebook/2026-11-0[5-8].md`, ADR-001…006.
 
-## Current: Phase 2 — Search baselines (IN PROGRESS, started 2026-11-08)
-DoD (docs/buildplan.md §11): MCTS and RHEA reimplemented; ADR-007 §6 criteria (§6.2 amended 2026-11-10: Tribes' own ordering, RB first); media =
-baseline round-robin table.
+## Phase 2 — Search baselines: DONE (closed by the user 2026-11-10)
+Baselines reimplemented; ADR-007 §6 all pass (ours-rr-20261110, 7,500 games); media
+`docs/media/2026-11-10-baseline-round-robin.{png,md}`. Open: our RHEA tends stronger than Tribes' (sidecar).
 
-### Reference
-- Tribes round-robin `tribes-rr-20261108` done (750 games): RB 83.6%, RHEA 64.0%, MCTS 63.2%, OSLA 56.0%, MC 32.4%,
-  Random 0.8%; pairwise table in `data/results/tribes-rr-20261108.md` (gitignored; copy in notebook 2026-11-10).
+## Current: Phase 3 — Action-level MCTS + heuristic priors (IN PROGRESS, started 2026-11-10)
+DoD (docs/buildplan.md §11): beats every baseline incl. RHEA with significance (test seeds, Paper condition,
+our reimplementations: ADR-007 amendment); macro vs. flat; media = win-rate table + replay GIF over RHEA.
+Design: ADR-008 (PUCT, Rule Based softmax priors, Diff leaf, min/max-normalised Q, 2,000 FM calls),
+ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits). Tuning: SPRT on dev only.
 
-### Done (2026-11-09/10; detail in `docs/notebook/2026-11-09.md`, `2026-11-10.md`)
-- ADR-007, agent facts sheets 01–05, rule facts 04 §9 + `agent_advance`; final probe difftest 520 games, 0 failures.
-- `search/`: tournament runner; Random, Rule Based (agrees with every Tribes RB decision), Diff heuristic,
-  OSLA, MC (+ root groups), MCTS, RHEA; agents pass their legal set to agent_advance (1.97× faster).
-
-### Result (2026-11-10)
-- `ours-rr-20261110` (7,500 games, git 9bfae75): **ADR-007 §6 all pass** (beat Random ≥ 98.3% lower bound; no
-  reversed resolved pair; all 15 pairs overlap Tribes'). Media `docs/media/2026-11-10-baseline-round-robin.{png,md}`
-  (`tools/plot_round_robin.py`). Our RHEA tends stronger than Tribes' (pooled 70.3% vs 64.0%, intervals just
-  overlap; 5/5 pairs same side): open, see the sidecar.
-- dev/test seed lists done (c92fca5, `data/seeds/{dev,test}.txt`, 100 each): tune on dev only, report on test.
-
-### Next
-1. User: sign off Phase 2; confirm the round-robin capture (docs/portfolio-todo.md).
-2. Phase 3 (action-level MCTS + heuristic priors): plan + ADRs (MCTS variant, macro-action set, hidden info).
+### Plan
+1. Flat PUCT agent, K = 1 (`search/puct`), tests + bug injection; smoke vs. baselines on dev seeds.
+2. `tools/sprt.py` (pentanomial GSPRT, ADR-007 §5), tested against published fishtest examples.
+3. Determinization (`search/determinize`, ADR-009) incl. leak property tests; SPRT vs. K = 1.
+4. Tune c, T, K, leaf form (SPRT, dev, Fog condition).
+5. Macro-actions: ADR-010, flat vs. macro comparison.
+6. Headline: vs. every baseline on test seeds (Paper + Fog); media (table, replay GIF with visit counts).
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded

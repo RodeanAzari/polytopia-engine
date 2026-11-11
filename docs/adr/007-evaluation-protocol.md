@@ -90,6 +90,11 @@ results existed (only 4-game smoke runs). Rejected: keeping the paper ordering a
 (it would test the Tribes version gap, not our agents); dropping criterion 2 (criterion 3's 50-game intervals
 are wide, so the direction check on resolved pairs still adds power).
 
+**Phase 3+ opponents (2026-11-10, user-approved).** Headline results against "Tribes' agents" are measured
+against our reimplementations, which passed §6 (ours-rr-20261110, all 15 pairs within Tribes' intervals), on
+our simulator and the test seeds. Rejected: a confirmation run against Tribes' Java agents via a bridge (needs a
+Java↔C++ bridge; 270–670 s per Tribes game); our RHEA, if anything, measured slightly stronger than Tribes'.
+
 ### 7. Records
 One CSV row per game in `data/results/<tournament-id>.csv`: game index, level seed, game seed, condition,
 agents (name + params + git hash + checkpoint if any), tribes, turn order, result per seat incl. draw flag, scores,
