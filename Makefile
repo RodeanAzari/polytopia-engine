@@ -125,6 +125,7 @@ build:
 test: build
 	ctest --test-dir build/release --output-on-failure
 	ctest --test-dir build/debug --output-on-failure
+	.venv/bin/python -m pytest -q tests/python
 
 tidy: build
 	clang-tidy -p build/release --quiet $(shell find sim search tests tools -name '*.cpp')
