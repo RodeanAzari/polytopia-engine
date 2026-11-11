@@ -41,6 +41,9 @@ forward-model calls (ADR-007 §4: 2,000 per decision). Facts from Phase 2:
      instead of the active tribe's (Tribes' quirk rewards ending the turn by the number of tiles we can't
      see). **H1 accepted** after 300 pairs, pentanomial [36, 0, 189, 0, 75], LLR 4.79 (bound 2.94), Elo
      +45.4 (95% +21.8 to +69.4). Adopted: `vision=own` is the default.
+   - SPRT 2 `det-k4` (2026-11-11, git 9c4170f): K = 4 determinized trees of 500 calls each (ADR-009) vs. one
+     tree on the observation. **H1 accepted** after 500 pairs, pentanomial [69, 0, 325, 0, 106], LLR 3.74
+     (bound 2.94), Elo +25.8 (95% +7.8 to +43.8). Adopted: `K=4` is the default.
 
 ## Rejected alternatives
 - **Gumbel (sequential halving at the root) from the start:** designed for 16–200 simulations; at 2,000 the gain

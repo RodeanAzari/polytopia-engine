@@ -27,7 +27,7 @@ record strategy fusion.
    Fogged tiles stay fog, exactly as in the agent's copy; terrain and units under fog are not sampled.
 2. **Aggregation:** K determinizations per decision, one PUCT tree each (ADR-008) with 2,000 / K
    forward-model calls; the move is the root action with the most visits summed over trees (the root legal set
-   is the environment's, identical in every tree). Start K = 4.
+   is the environment's, identical in every tree). Start K = 4 (adopted by SPRT 2, ADR-008 §8).
 3. **Leak tests:** property test that the determinized state equals the observation on every field the
    observation shows, and that its output is identical for two true states with the same observation (a
    leak would make it differ).

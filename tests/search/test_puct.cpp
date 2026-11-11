@@ -29,6 +29,9 @@ using poly::ActionType;
 using poly::GameState;
 using poly::search::PuctAgent;
 
+// ADR-008's single tree on the observation itself (K = 0; the default is K = 4 since SPRT 2).
+constexpr poly::search::PuctParams kOneTree{.determinizations = 0};
+
 // 11 x 11 plains (no ruins: no chance draws), tribe 0 to move, full obs by default.
 GameState two_tribes(poly::ObsMode mode = poly::ObsMode::Full) {
     std::vector<std::string> lines(11, ".,.,.,.,.,.,.,.,.,.,.");
@@ -131,9 +134,8 @@ TEST(PuctParams, ParsesTheRunnerSpec) {  // A/B variants (ADR-007 §5)
     EXPECT_DOUBLE_EQ(p.temperature, 0.5);
     EXPECT_EQ(p.vision, DiffVision::Player);
     EXPECT_EQ(parse_puct_params("vision=active").vision, DiffVision::ActiveTribe);
-    EXPECT_EQ(d.determinizations,
-              0);  // ADR-009: K = 0 (the observation) until an SPRT says otherwise
-    EXPECT_EQ(parse_puct_params("K=4").determinizations, 4);
+    EXPECT_EQ(d.determinizations, 4);  // ADR-008 §8: adopted by SPRT 2
+    EXPECT_EQ(parse_puct_params("K=0").determinizations, 0);
     EXPECT_FALSE(d.macro);  // ADR-010: flat until its SPRT passes
     EXPECT_TRUE(parse_puct_params("macro=1").macro);
     EXPECT_FALSE(parse_puct_params("macro=1:macro=0").macro);
@@ -169,7 +171,7 @@ TEST(Puct, OneForwardModelCallPerExpansion) {
     const GameState s = two_tribes();
     const auto obs = poly::observe(s, 0);
     for (std::uint64_t seed = 1; seed <= 3; ++seed) {
-        PuctAgent agent(seed);
+        PuctAgent agent(seed, kOneTree);
         const auto l = legal(s);
         const Action a = agent.act(obs, l);
         EXPECT_NE(std::ranges::find(l, a), l.end());
@@ -193,7 +195,7 @@ TEST(Puct, MacroModeTreesKeepTheirBookkeeping) {  // ADR-010: same tree rules, f
 
 TEST(Puct, SingleLegalActionIsPlayedWithoutSearch) {
     const auto obs = poly::observe(two_tribes(), 0);
-    PuctAgent agent(1);
+    PuctAgent agent(1, kOneTree);
     const Action end{.type = ActionType::EndTurn, .actor = 0};
     EXPECT_EQ(agent.act(obs, std::vector{end}), end);
     EXPECT_EQ(agent.last_fm_calls(), 0);
@@ -211,7 +213,7 @@ TEST(Puct, FirstExpansionFollowsTheLargestPrior) {  // ADR-008 §2/§3: all q̂ 
     }
     const auto top = std::ranges::max_element(scores) - scores.begin();
     ASSERT_GT(top, 0);  // not the first action, or a prior-blind search would pass too
-    PuctAgent agent(1);
+    PuctAgent agent(1, kOneTree);
     agent.act(obs, l);
     const auto root_edges = agent.edges(agent.nodes()[0]);
     const auto first = std::ranges::find_if(root_edges, [](const auto& e) { return e.child == 1; });
@@ -238,7 +240,7 @@ TEST(Puct, PriorsComeFromThePlayerToMove) {  // ADR-008 §3
     ASSERT_NE(scores, wrong);  // the test can tell the two apart
     std::vector<double> expected;
     poly::search::softmax_priors(scores, 1.0, expected);
-    PuctAgent agent(1);
+    PuctAgent agent(1, kOneTree);
     agent.act(obs0, l);
     const auto root_edges = agent.edges(agent.nodes()[0]);
     ASSERT_EQ(root_edges.size(), expected.size());
@@ -250,7 +252,7 @@ TEST(Puct, PriorsComeFromThePlayerToMove) {  // ADR-008 §3
 TEST(Puct, PlaysTheMostVisitedRootAction) {  // ADR-008 §5
     const GameState s = two_tribes();
     const auto l = legal(s);
-    PuctAgent agent(2);
+    PuctAgent agent(2, kOneTree);
     const Action a = agent.act(poly::observe(s, 0), l);
     const auto root_edges = agent.edges(agent.nodes()[0]);
     const auto most = std::ranges::max_element(
@@ -323,7 +325,7 @@ TEST(Puct, FinishedGamesRankBeyondEveryOtherValue) {  // ADR-008 §4
     GameState s = two_tribes();
     s.tick = poly::kMaxTurnsCapitals + 1;
     const auto l = legal(s);
-    PuctAgent agent(3);
+    PuctAgent agent(3, kOneTree);
     agent.act(poly::observe(s, 0), l);
     const int terminals = check_terminal_values(agent);
     ASSERT_GT(terminals, 0);
@@ -341,7 +343,7 @@ TEST(Puct, LeafValueUsesTheConfiguredVision) {  // ADR-008 §4/§7, under fog wh
     const auto obs = poly::observe(s, 0);
     const auto l = legal(obs.view());
     for (const DiffVision v : {DiffVision::ActiveTribe, DiffVision::Player}) {
-        PuctAgent agent(1, {.temperature = 1000.0, .vision = v});
+        PuctAgent agent(1, {.temperature = 1000.0, .vision = v, .determinizations = 0});
         agent.act(obs, l);
         int differ = 0;  // nodes where the two visions disagree: the setting is exercised
         for (std::size_t i = 0; i < agent.nodes().size(); ++i) {
@@ -378,7 +380,7 @@ TEST(Puct, DeterminizedTreesShareTheBudgetAndSumVisits) {  // ADR-009 §2
     // the observation shows as none.
     ASSERT_EQ(obs.view().tribes[1].techs, 0U);
     EXPECT_NE(agent.state(0).tribes[1].techs, 0U);
-    PuctAgent plain(1);
+    PuctAgent plain(1, kOneTree);
     plain.act(obs, l);
     EXPECT_EQ(plain.state(0).tribes[1].techs, 0U);
 }

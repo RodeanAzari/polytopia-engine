@@ -47,7 +47,7 @@ struct PuctParams {
     double c = 1.25;                         // ADR-008 §2 start value
     double temperature = 1.0;                // ADR-008 §3 start value
     DiffVision vision = DiffVision::Player;  // ADR-008 §8: SPRT 1 (own vision beat Tribes' Diff)
-    int determinizations = 0;  // ADR-009 K: trees on sampled hidden state; 0 = the observation
+    int determinizations = 4;  // ADR-009 K (0 = the observation); 4 by SPRT 2, ADR-008 §8
     bool macro = false;        // ADR-010: goal-directed moves, pruned never-played actions
 };
 
