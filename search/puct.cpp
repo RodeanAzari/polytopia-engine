@@ -7,6 +7,7 @@
 #include <string>
 
 #include "poly/observation.hpp"
+#include "search/determinize.hpp"
 #include "search/diff_heuristic.hpp"
 #include "search/rule_based.hpp"
 
@@ -42,6 +43,29 @@ double puct_score(double q_hat, double prior, int parent_visits, int edge_visits
            (c * prior * std::sqrt(static_cast<double>(parent_visits)) / (1.0 + edge_visits));
 }
 
+namespace {
+
+double positive(const std::string& key, const std::string& value) {
+    std::size_t used = 0;
+    double v = 0.0;
+    try {
+        v = std::stod(value, &used);
+    } catch (const std::logic_error&) {
+        used = 0;
+    }
+    if (used == 0 || used != value.size() || !(v > 0.0) || !std::isfinite(v)) {
+        std::string msg = "puct: ";
+        msg += key;
+        msg += " must be a positive number, got '";
+        msg += value;
+        msg += "'";
+        throw std::invalid_argument(msg);
+    }
+    return v;
+}
+
+}  // namespace
+
 PuctParams parse_puct_params(std::string_view spec) {
     PuctParams p;
     while (!spec.empty()) {
@@ -56,22 +80,10 @@ PuctParams parse_puct_params(std::string_view spec) {
         const std::string key(item.substr(0, eq));
         const std::string value(item.substr(eq + 1));
         if (key == "c" || key == "T") {
-            std::size_t used = 0;
-            double v = 0.0;
-            try {
-                v = std::stod(value, &used);
-            } catch (const std::logic_error&) {
-                used = 0;
-            }
-            if (used == 0 || used != value.size() || !(v > 0.0) || !std::isfinite(v)) {
-                std::string msg = "puct: ";
-                msg += key;
-                msg += " must be a positive number, got '";
-                msg += value;
-                msg += "'";
-                throw std::invalid_argument(msg);
-            }
+            const double v = positive(key, value);
             (key == "c" ? p.c : p.temperature) = v;
+        } else if (key == "K" && (value.size() == 1 && value[0] >= '0' && value[0] <= '8')) {
+            p.determinizations = value[0] - '0';
         } else if (key == "vision" && (value == "active" || value == "own")) {
             p.vision = value == "own" ? DiffVision::Player : DiffVision::ActiveTribe;
         } else {
@@ -120,7 +132,7 @@ std::int32_t PuctAgent::add_node(std::int32_t parent, std::int32_t parent_edge,
 // largest magnitude seen so far + 1), so it ranks beyond every non-terminal value.
 double PuctAgent::evaluate(std::int32_t node) const {
     const GameState& s = states_[static_cast<std::size_t>(node)];
-    const double diff = diff_heuristic(*root_, s, player_, params_.vision);
+    const double diff = diff_heuristic(root_state_, s, player_, params_.vision);
     if (!s.game_over) {
         return diff;
     }
@@ -200,26 +212,21 @@ std::int32_t PuctAgent::expand(std::int32_t node, std::int32_t e) {
     return leaf;
 }
 
-Action PuctAgent::act(const Observation& obs, std::span<const Action> legal) {
-    fm_calls_ = 0;
+// One tree from root_state_ with `budget` forward-model calls (ADR-008).
+void PuctAgent::search(std::span<const Action> legal, int budget) {
     nodes_.clear();
     edges_.clear();
     actions_.clear();
-    if (legal.size() == 1) {
-        return legal[0];
-    }
-    player_ = obs.observer();
-    root_ = &obs.view();
-    states_[0] = obs.view();
-    legal_actions(obs.view(), root_fresh_);
+    states_[0] = root_state_;
+    legal_actions(root_state_, root_fresh_);
     lo_ = kInf;
     hi_ = -kInf;
     add_node(-1, -1, legal);  // the root's edges: the environment's legal set
     backup(0, nodes_[0].value);
-
     // Revisiting a finished game costs no forward-model call, so a tree whose every path ends
     // in one would never spend the budget: iterations are capped too.
-    for (int it = 0; fm_calls_ < kBudget && it < kMaxIterations; ++it) {
+    const int stop = fm_calls_ + budget;
+    for (int it = 0; fm_calls_ < stop && it < 10 * budget; ++it) {
         std::int32_t node = 0;
         for (;;) {
             const PuctNode& n = nodes_[static_cast<std::size_t>(node)];
@@ -239,7 +246,32 @@ Action PuctAgent::act(const Observation& obs, std::span<const Action> legal) {
             node = child;
         }
     }
-    return legal[most_visited(edges(nodes_[0]))];  // ADR-008 §5
+}
+
+Action PuctAgent::act(const Observation& obs, std::span<const Action> legal) {
+    fm_calls_ = 0;
+    nodes_.clear();
+    edges_.clear();
+    actions_.clear();
+    if (legal.size() == 1) {
+        return legal[0];
+    }
+    player_ = obs.observer();
+    // ADR-009 §2: K determinizations, one tree each with an equal share of the budget, root visits
+    // summed (the root's edges are the environment's legal set in every tree); K = 0 searches the
+    // observation itself.
+    const int trees = std::max(1, params_.determinizations);
+    summed_.assign(legal.size(), PuctEdge{});
+    for (int k = 0; k < trees; ++k) {
+        root_state_ = params_.determinizations == 0 ? obs.view() : determinize(obs, rng_, chance_);
+        search(legal, kBudget / trees);
+        const auto root_edges = edges(nodes_[0]);
+        for (std::size_t i = 0; i < root_edges.size(); ++i) {
+            summed_[i].visits += root_edges[i].visits;
+            summed_[i].total += root_edges[i].total;
+        }
+    }
+    return legal[most_visited(summed_)];  // ADR-008 §5
 }
 
 }  // namespace poly::search

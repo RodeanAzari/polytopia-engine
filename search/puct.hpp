@@ -42,12 +42,13 @@ struct PuctParams {
     double c = 1.25;                              // ADR-008 §2 start value
     double temperature = 1.0;                     // ADR-008 §3 start value
     DiffVision vision = DiffVision::ActiveTribe;  // ADR-008 §4 start: Tribes' Diff as is
+    int determinizations = 0;  // ADR-009 K: trees on sampled hidden state; 0 = the observation
 };
 
 // Agent variants for A/B runs (ADR-007 §5), as the tournament runner names them after "PUCT:": ""
 // (the defaults) or key=value items separated by ':' (agent lists and CSV fields use ','):
-// c=<double>, T=<double>, vision=active|own. Throws on anything else (unknown key, bad value, c
-// or T not positive).
+// c=<double>, T=<double>, vision=active|own, K=0..8. Throws on anything else (unknown key, bad
+// value, c or T not positive).
 PuctParams parse_puct_params(std::string_view spec);
 
 // ADR-008 §3: p_i = exp((s_i − max s)/T) / Σ exp((s_j − max s)/T). `out` gets one prior per score.
@@ -73,13 +74,14 @@ class PuctAgent final : public Agent {
    public:
     static constexpr int kBudget = 2000;  // ADR-007 §4: forward-model calls per decision
     static constexpr int kMaxNodes = kBudget + 1;
-    static constexpr int kMaxIterations = 10 * kBudget;  // see act()
+    static constexpr int kMaxIterations = 10 * kBudget;  // see search()
 
     explicit PuctAgent(std::uint64_t seed, PuctParams params = {});
 
     Action act(const Observation& obs, std::span<const Action> legal) override;
 
-    // The last decision's search (empty if it didn't search), for tests and statistics.
+    // The last decision's search (its last tree; empty if it didn't search), for tests and
+    // statistics. last_fm_calls counts every tree.
     [[nodiscard]] int last_fm_calls() const { return fm_calls_; }
     [[nodiscard]] std::span<const PuctNode> nodes() const { return nodes_; }
     [[nodiscard]] std::span<const PuctEdge> edges(const PuctNode& n) const {
@@ -91,11 +93,14 @@ class PuctAgent final : public Agent {
                                            static_cast<std::size_t>(n.num_edges));
     }
     [[nodiscard]] const GameState& state(std::size_t node) const { return states_[node]; }
+    // Root edge stats summed over the last decision's trees (ADR-009 §2), in `legal` order.
+    [[nodiscard]] std::span<const PuctEdge> summed() const { return summed_; }
 
    private:
     // The node for states_[nodes_.size()], with `actions` as its edges.
     std::int32_t add_node(std::int32_t parent, std::int32_t parent_edge,
                           std::span<const Action> actions);
+    void search(std::span<const Action> legal, int budget);
     std::int32_t expand(std::int32_t node, std::int32_t e);
     void backup(std::int32_t leaf, double v);
     [[nodiscard]] double evaluate(std::int32_t node) const;
@@ -107,7 +112,8 @@ class PuctAgent final : public Agent {
     int fm_calls_ = 0;
     double lo_ = 0.0;  // min/max of every value backed up in this tree (ADR-008 §2)
     double hi_ = 0.0;
-    const GameState* root_ = nullptr;
+    GameState root_state_;  // the searched tree's root: the observation or a determinization
+    std::vector<PuctEdge> summed_;  // root edge stats summed over the trees (ADR-009 §2)
     std::vector<PuctNode> nodes_;
     std::vector<PuctEdge> edges_;
     std::vector<Action> actions_;    // parallel to edges_

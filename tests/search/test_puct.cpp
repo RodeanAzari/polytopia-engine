@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "poly/chance.hpp"
+#include "poly/dump.hpp"
 #include "poly/level.hpp"
 #include "poly/observation.hpp"
 #include "poly/rules.hpp"
@@ -130,11 +131,14 @@ TEST(PuctParams, ParsesTheRunnerSpec) {  // A/B variants (ADR-007 §5)
     EXPECT_DOUBLE_EQ(p.temperature, 0.5);
     EXPECT_EQ(p.vision, DiffVision::Player);
     EXPECT_EQ(parse_puct_params("vision=active").vision, DiffVision::ActiveTribe);
+    EXPECT_EQ(d.determinizations,
+              0);  // ADR-009: K = 0 (the observation) until an SPRT says otherwise
+    EXPECT_EQ(parse_puct_params("K=4").determinizations, 4);
 }
 
 TEST(PuctParams, RejectsBadSpecs) {
-    for (const char* bad :
-         {"c", "c=", "c=x", "c=0", "c=-1", "T=1.5x", "T=inf", "vision=mine", "k=1", "c=1,T=2"}) {
+    for (const char* bad : {"c", "c=", "c=x", "c=0", "c=-1", "T=1.5x", "T=inf", "vision=mine",
+                            "K=9", "K=-1", "K=2.5", "k=1", "c=1,T=2"}) {
         EXPECT_TRUE(rejects(bad)) << bad;
     }
 }
@@ -337,6 +341,48 @@ TEST(Puct, LeafValueUsesTheConfiguredVision) {  // ADR-008 §4/§7, under fog wh
                           : 0;
         }
         EXPECT_GT(differ, 0);
+    }
+}
+
+TEST(Puct, DeterminizedTreesShareTheBudgetAndSumVisits) {  // ADR-009 §2
+    GameState s = two_tribes();
+    s.tick = 6;
+    const auto obs = poly::observe(s, 0);
+    const auto l = legal(s);
+    PuctAgent agent(1, {.determinizations = 4});
+    const Action a = agent.act(obs, l);
+    EXPECT_EQ(agent.last_fm_calls(), PuctAgent::kBudget);  // 4 trees x 500
+    int visits = 0;
+    for (const auto& e : agent.summed()) {
+        visits += e.visits;
+    }
+    EXPECT_EQ(visits, PuctAgent::kBudget);  // one root-edge visit per expansion, no finished games
+    EXPECT_EQ(a, l[poly::search::most_visited(agent.summed())]);
+    // The last tree searched a determinization: the opponent's hidden techs are filled in, which
+    // the observation shows as none.
+    ASSERT_EQ(obs.view().tribes[1].techs, 0U);
+    EXPECT_NE(agent.state(0).tribes[1].techs, 0U);
+    PuctAgent plain(1);
+    plain.act(obs, l);
+    EXPECT_EQ(plain.state(0).tribes[1].techs, 0U);
+}
+
+TEST(Puct, HiddenInformationDoesNotChangeTheDecision) {  // no peeking through the fog
+    for (const int k : {0, 2}) {
+        GameState a = two_tribes(poly::ObsMode::Partial);
+        a.tick = 4;
+        GameState b = a;
+        b.tribes[1].stars += 20;
+        poly::mark_researched(b.tribes[1], poly::Tech::Riding);
+        b.cities[b.tribes[1].capital].population += 1;
+        const auto oa = poly::observe(a, 0);
+        const auto ob = poly::observe(b, 0);
+        const auto l = legal(a);
+        ASSERT_EQ(l, legal(b));
+        PuctAgent pa(9, {.determinizations = k});
+        PuctAgent pb(9, {.determinizations = k});
+        EXPECT_EQ(pa.act(oa, l), pb.act(ob, l)) << "K " << k;
+        EXPECT_EQ(poly::dump_state(pa.state(0)), poly::dump_state(pb.state(0))) << "K " << k;
     }
 }
 
