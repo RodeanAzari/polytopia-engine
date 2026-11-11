@@ -65,3 +65,10 @@ def test_bad_turn_specs_are_rejected(spec: str):
 def test_turn_spec():
     assert replay_gif.parse_turns("2-9") == (2, 9)
     assert replay_gif.parse_turns(None) is None
+
+
+def test_window_spec():
+    assert replay_gif.parse_window("1040x760") == (1040, 760)
+    for bad in ("1040", "x760", "1040x", "0x760", "axb", "1040x760x2"):
+        with pytest.raises(ValueError):
+            replay_gif.parse_window(bad)

@@ -12,6 +12,7 @@ Usage: replay_gif.py <replay.json> <out.gif> [--turns A-B] [--tribe P] [--decisi
   --tribe P         only frames of tribe P's turns (start, its actions, end)
   --decisions-only  only frames that carry search visits (vc), plus each turn start
   --view T          view as tribe T (its fog); default: the true state
+  --window WxH      browser window (default 1300x760; ~1040 wide puts the panel right beside the board)
 Chromium: $CHROME, else Playwright's chrome-headless-shell under ~/.cache/ms-playwright.
 """
 
@@ -32,7 +33,6 @@ from pathlib import Path
 from PIL import Image
 
 VIEWER = Path(__file__).resolve().parent / "viewer" / "index.html"
-WINDOW = (1300, 760)
 
 
 def parse_turns(spec: str | None) -> tuple[int, int] | None:
@@ -92,13 +92,21 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
-def shoot(chrome: str, url: str, png: Path) -> None:
+def parse_window(spec: str) -> tuple[int, int]:
+    """'WxH' -> (W, H). Raises ValueError on anything else."""
+    w, sep, h = spec.partition("x")
+    if not sep or not w.isdigit() or not h.isdigit() or int(w) == 0 or int(h) == 0:
+        raise ValueError(f"--window wants WxH, got {spec!r}")
+    return int(w), int(h)
+
+
+def shoot(chrome: str, url: str, png: Path, window: tuple[int, int]) -> None:
     cmd = [
         chrome,
         "--headless",
         "--no-sandbox",
         "--hide-scrollbars",
-        f"--window-size={WINDOW[0]},{WINDOW[1]}",
+        f"--window-size={window[0]},{window[1]}",
         "--virtual-time-budget=3000",
         f"--screenshot={png}",
         url,
@@ -121,7 +129,9 @@ def main() -> int:
     ap.add_argument("--ms", type=int, default=700)
     ap.add_argument("--width", type=int, default=960)
     ap.add_argument("--max-mb", type=float, default=8.0)
+    ap.add_argument("--window", default="1300x760")
     a = ap.parse_args()
+    window = parse_window(a.window)
 
     frames = json.loads(Path(a.replay).read_text())["frames"]
     chosen = select_frames(frames, parse_turns(a.turns), a.tribe, a.decisions_only)
@@ -140,6 +150,7 @@ def main() -> int:
                     chrome,
                     f"http://127.0.0.1:{port}/index.html?src=replay.json&frame={n}&view={a.view}",
                     png,
+                    window,
                 )
                 im = Image.open(png).convert("RGB")
                 h = round(im.height * a.width / im.width)
