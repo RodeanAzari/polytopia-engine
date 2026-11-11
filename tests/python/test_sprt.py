@@ -104,9 +104,9 @@ def test_elo_estimate():
 def write_csv(path: Path, rows: list[tuple[str, str, str, str, str]]) -> None:
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["game", "levelSeed", "rep", "agent0", "agent1", "result0"])
+        w.writerow(["game", "tournament", "levelSeed", "rep", "agent0", "agent1", "result0"])
         for i, (level, rep, a0, a1, r0) in enumerate(rows):
-            w.writerow([i, level, rep, a0, a1, r0])
+            w.writerow([i, path.stem, level, rep, a0, a1, r0])
 
 
 def test_pentanomial_from_pairs(tmp_path: Path):
@@ -119,8 +119,18 @@ def test_pentanomial_from_pairs(tmp_path: Path):
         ("3", "0", "X", "Y", "WIN"),                                 # incomplete
         ("3", "0", "X", "Z", "WIN"), ("3", "0", "Z", "X", "LOSS"),   # other pairing: ignored
     ])
-    counts, incomplete = sprt.pentanomial(str(p), "X", "Y")
+    counts, incomplete = sprt.pentanomial([str(p)], "X", "Y")
     assert counts == [1, 1, 1, 0, 1]
     assert incomplete == 1
-    counts_y, _ = sprt.pentanomial(str(p), "Y", "X")
+    counts_y, _ = sprt.pentanomial([str(p)], "Y", "X")
     assert counts_y == counts[::-1]
+
+
+def test_batches_do_not_merge_pairs(tmp_path: Path):
+    # Two batches reuse (level seed, rep); the tournament id keeps their pairs apart.
+    p1, p2 = tmp_path / "b1.csv", tmp_path / "b2.csv"
+    write_csv(p1, [("1", "0", "X", "Y", "WIN"), ("1", "0", "Y", "X", "LOSS")])
+    write_csv(p2, [("1", "0", "X", "Y", "LOSS"), ("1", "0", "Y", "X", "WIN")])
+    counts, incomplete = sprt.pentanomial([str(p1), str(p2)], "X", "Y")
+    assert counts == [1, 0, 0, 0, 1]
+    assert incomplete == 0

@@ -9,8 +9,9 @@ expected score s_k = 1 / (1 + 10^(-elo_k/400)) (constrained multinomial MLE: p_i
 x the root of the secular equation sum_i phat_i (a_i - s) / (1 + x (a_i - s)) = 0). Stop when the LLR leaves
 [ln(beta/(1-alpha)), ln((1-beta)/alpha)]; ADR-007 caps a test at 2,000 pairs (inconclusive, not a pass).
 
-Usage (repo root): sprt.py <tournament.csv> <agent A> <agent B> [--elo0=0] [--elo1=20] [--alpha=0.05]
+Usage (repo root): sprt.py <agent A> <agent B> <tournament.csv>... [--elo0=0] [--elo1=20] [--alpha=0.05]
                    [--beta=0.05] [--cap=2000]
+Several CSVs are the batches of one test (tools/sprt_run.sh); a pair is (tournament, level seed, rep).
 Exit status: 0 = H1 accepted (A better), 1 = H0 accepted, 2 = continue, 3 = cap reached (inconclusive).
 """
 
@@ -76,16 +77,18 @@ def elo_estimate(counts: list[int]) -> tuple[float, float, float]:
     return elo(mean), elo(mean - half), elo(mean + half)
 
 
-def pentanomial(path: str, a: str, b: str) -> tuple[list[int], int]:
-    """Pentanomial counts of A vs. B from a tools/tournament CSV; pairs are (level seed, rep) with A in both seats.
-    Returns the counts and the number of incomplete pairs skipped."""
-    games: dict[tuple[str, str], list[float]] = defaultdict(list)
-    with open(path, newline="") as f:
-        for r in csv.DictReader(f):
-            if {r["agent0"], r["agent1"]} != {a, b}:
-                continue
-            s0 = {"WIN": 1.0, "DRAW": 0.5, "LOSS": 0.0}[r["result0"]]
-            games[(r["levelSeed"], r["rep"])].append(s0 if r["agent0"] == a else 1.0 - s0)
+def pentanomial(paths: list[str], a: str, b: str) -> tuple[list[int], int]:
+    """Pentanomial counts of A vs. B from tools/tournament CSVs; a pair is (tournament, level seed, rep) with A in
+    both seats. Returns the counts and the number of incomplete pairs skipped."""
+    games: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    for path in paths:
+        with open(path, newline="") as f:
+            for r in csv.DictReader(f):
+                if {r["agent0"], r["agent1"]} != {a, b}:
+                    continue
+                s0 = {"WIN": 1.0, "DRAW": 0.5, "LOSS": 0.0}[r["result0"]]
+                key = (r["tournament"], r["levelSeed"], r["rep"])
+                games[key].append(s0 if r["agent0"] == a else 1.0 - s0)
     counts = [0] * 5
     incomplete = 0
     for scores in games.values():
@@ -97,13 +100,14 @@ def pentanomial(path: str, a: str, b: str) -> tuple[list[int], int]:
 
 
 def opt(name: str, default: float) -> float:
-    return float(next((x.split("=", 1)[1] for x in sys.argv[4:] if x.startswith(f"--{name}=")), default))
+    return float(next((x.split("=", 1)[1] for x in sys.argv[3:] if x.startswith(f"--{name}=")), default))
 
 
 def main() -> int:
-    path, a, b = sys.argv[1:4]
+    a, b = sys.argv[1:3]
+    paths = [x for x in sys.argv[3:] if not x.startswith("--")]
     elo0, elo1, alpha, beta, cap = opt("elo0", 0), opt("elo1", 20), opt("alpha", 0.05), opt("beta", 0.05), opt("cap", 2000)
-    counts, incomplete = pentanomial(path, a, b)
+    counts, incomplete = pentanomial(paths, a, b)
     n = sum(counts)
     if n == 0:
         print("no complete pairs")
