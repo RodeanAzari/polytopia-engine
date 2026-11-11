@@ -324,6 +324,33 @@ TEST(Observation, HiddenInformationDoesNotChangeIt) {
     EXPECT_FALSE(same(a, b));
 }
 
+long fog_owners(const GameState& s) {
+    return std::ranges::count(s.cities, poly::kFogOwnerId, &poly::City::id);
+}
+
+long ghosts(const GameState& s) {
+    return std::ranges::count_if(s.cities, [](const poly::City& c) {
+        return c.id != 0 && c.id != poly::kFogOwnerId && c.tribe < 0;
+    });
+}
+
+// Search observes its own nodes (ADR-008 §3: the mover's observation of a state stepped from an
+// observation), so observe must accept an observation: ghost cities stay ghosts, the fog owner is
+// reused rather than duplicated, and observing again for the same tribe changes nothing.
+TEST(Observation, ObservingAnObservation) {
+    const GameState a = load({{{1, 1}, "c:0"}, {{9, 9}, "c:2"}});
+    const GameState once = poly::observe(a, 0).view();
+    ASSERT_EQ(fog_owners(once), 1);
+    ASSERT_EQ(ghosts(once), 1);  // tribe 1's capital, in tribe 0's fog
+    const poly::Observation twice = poly::observe(once, 0);
+    EXPECT_EQ(poly::dump_observation(twice), poly::dump_observation(poly::observe(a, 0)));
+    EXPECT_EQ(fog_owners(twice.view()), 1);
+    EXPECT_EQ(ghosts(twice.view()), 1);
+    const poly::Observation other = poly::observe(once, 1);  // the opponent's view of tribe 0's
+    EXPECT_EQ(fog_owners(other.view()), 1);
+    EXPECT_EQ(ghosts(other.view()), 1);
+}
+
 // 04 §7: Tribes' actor map (a HashMap, 16 buckets) doubles once it holds more than 3/4 of its
 // bucket count in live cities + units, and never shrinks.
 TEST(Observation, ActorMapCapacityGrowsAtThreeQuarters) {

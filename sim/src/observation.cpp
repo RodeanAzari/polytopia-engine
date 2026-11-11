@@ -37,6 +37,11 @@ void hide_tribe(TribeState& t, std::size_t tiles) {
 // has; 0 would mark a free slot). It matters when rules run on the copy (04 §9): such tiles can't
 // be claimed by borders or roads, and nobody meets their owner.
 Slot add_fog_owner(GameState& o) {
+    // Observing an observation (search does, ADR-008 §3): reuse its fog owner.
+    if (auto* const own = std::ranges::find(o.cities, kFogOwnerId, &City::id);
+        own != o.cities.end()) {
+        return static_cast<Slot>(own - o.cities.begin());
+    }
     auto* const it = std::ranges::find(o.cities, 0, &City::id);
     check(it != o.cities.end(), "observation: no free city slot for the fog owner");
     *it = City{};
@@ -98,7 +103,7 @@ Observation observe(const GameState& s, int observer) {
 
     for (std::size_t c = 0; c < o.cities.size(); ++c) {
         City& city = o.cities[c];
-        if (city.id == 0 || city.id == kFogOwnerId) {
+        if (city.id == 0 || city.id == kFogOwnerId || city.tribe < 0) {  // free, fog owner, ghost
             continue;
         }
         city.points_worth = 0;
