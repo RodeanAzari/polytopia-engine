@@ -116,8 +116,8 @@ Every phase's DoD includes **README updated, log entry, media captured, user con
 - [x] Media: simulator speed chart; replay viewer screenshot
 
 ### Phase 2 — Search baselines
-- [ ] MCTS and RHEA reimplemented; win-rate pattern reproduced per ADR-007 §6 (Tribes' own ordering at the pinned commit; paper compared as a finding)
-- [ ] Media: baseline round-robin table
+- [x] MCTS and RHEA reimplemented; win-rate pattern reproduced per ADR-007 §6 (Tribes' own ordering at the pinned commit; paper compared as a finding)
+- [x] Media: baseline round-robin table
 
 ### Phase 3 — Action-level MCTS + heuristic priors
 - [ ] Beats every Tribes agent, including RHEA, with significance

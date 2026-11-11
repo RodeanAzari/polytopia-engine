@@ -38,7 +38,7 @@ reproduces it. Dashes mean not measured yet.
 | Phase | State |
 |---|---|
 | 1 — Simulator | **Done** (2026-11-08): rule-facts sheet; map load, every action type and legal-action generation bit-exact, with and without fog; the agent's fog-filtered observation matches Tribes' at every decision; 5–6× Tribes' speed; replay viewer; action encoding for search and the policy head ([ADR-006](docs/adr/006-action-encoding.md)) |
-| 2 — Search baselines | **In progress**: tournament runner, then MCTS and RHEA validated against Tribes' own agents (ADR-007 §6) |
+| 2 — Search baselines | **Criteria met** (2026-11-10): Tribes' five baselines reimplemented (Rule Based, OSLA, MC, MCTS, RHEA); on 7,500 games they reproduce Tribes' own agents' results pair by pair ([ADR-007](docs/adr/007-evaluation-protocol.md) §6, [table](docs/media/2026-11-10-baseline-round-robin.md)) |
 | 3 — Action-level MCTS + heuristic priors | Not started |
 | 4 — Learned policy/value network | Not started (needs GPU time) |
 | 5 — Evaluation | Not started |
@@ -123,6 +123,14 @@ Matching Tribes exactly means matching its bugs; each is recorded in the sheet a
 ## Results
 
 Phase 1 results so far are the difftest and speed rows above.
+
+**Search baselines (Phase 2):** our reimplementations of Tribes' agents against each other, 500 games per pair on
+our simulator, next to Tribes' own agents (50 games per pair), paper condition. Every pair's interval overlaps
+Tribes', no pair Tribes resolves is reversed, and every agent beats Random (lower bound ≥ 98.3%). Ordering:
+Rule Based > RHEA > MCTS ≈ OSLA > MC > Random, as in Tribes at the pinned commit, not as in the paper.
+[Full table, provenance and caveats](docs/media/2026-11-10-baseline-round-robin.md).
+
+![Per-pair win rates with Wilson 95% intervals, our agents vs. Tribes' agents](docs/media/2026-11-10-baseline-round-robin.png)
 
 ![Random-playout speed, our simulator vs. Tribes](docs/media/2026-11-08-sim-speed.png)
 

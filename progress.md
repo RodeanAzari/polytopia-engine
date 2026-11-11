@@ -18,17 +18,16 @@ baseline round-robin table.
 - `search/`: tournament runner; Random, Rule Based (agrees with every Tribes RB decision), Diff heuristic,
   OSLA, MC (+ root groups), MCTS, RHEA; agents pass their legal set to agent_advance (1.97× faster).
 
-### In flight
-- **Our validation round-robin** `ours-rr-20261110` (started 2026-11-10 ~13:30, 7,500 games, 8 jobs, est. 6–7 h;
-  git 9bfae75). Resume = rerun: `build/release/tournament --levels=build/levels/paper-25
-  --agents=Random,RuleBased,OSLA,MC,MCTS,RHEA --reps=10 --obs=full --id=ours-rr-20261110
-  --out=data/results/ours-rr-20261110.csv --jobs=8`; summary: `python3 oracle/scripts/tournament_summary.py <csv>`.
+### Result (2026-11-10)
+- `ours-rr-20261110` (7,500 games, git 9bfae75): **ADR-007 §6 all pass** (beat Random ≥ 98.3% lower bound; no
+  reversed resolved pair; all 15 pairs overlap Tribes'). Media `docs/media/2026-11-10-baseline-round-robin.{png,md}`
+  (`tools/plot_round_robin.py`). Our RHEA tends stronger than Tribes' (pooled 70.3% vs 64.0%, intervals just
+  overlap; 5/5 pairs same side): open, see the sidecar.
+- dev/test seed lists done (c92fca5, `data/seeds/{dev,test}.txt`, 100 each): tune on dev only, report on test.
 
 ### Next
-1. Evaluate `ours-rr-20261110` against ADR-007 §6 (1: beat Random ≥ 95% lower bound; 2: no reversed direction on
-   Tribes-resolved pairs; 3: per-pair interval overlap with tribes-rr-20261108). A failing pair = investigate
-   as a reimplementation bug first. Then the Phase 2 media (round-robin table) and portfolio note.
-2. dev/test seed lists: done (c92fca5, `data/seeds/{dev,test}.txt`, 100 each; tune on dev only, report on test).
+1. User: sign off Phase 2; confirm the round-robin capture (docs/portfolio-todo.md).
+2. Phase 3 (action-level MCTS + heuristic priors): plan + ADRs (MCTS variant, macro-action set, hidden info).
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
