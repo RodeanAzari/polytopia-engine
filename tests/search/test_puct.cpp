@@ -29,8 +29,9 @@ using poly::ActionType;
 using poly::GameState;
 using poly::search::PuctAgent;
 
-// ADR-008's single tree on the observation itself (K = 0; the default is K = 4 since SPRT 2).
-constexpr poly::search::PuctParams kOneTree{.determinizations = 0};
+// ADR-008's flat single tree on the observation itself (K = 0, every legal action an edge; the
+// defaults are K = 4 since SPRT 2 and macro mode since SPRT 3).
+constexpr poly::search::PuctParams kOneTree{.determinizations = 0, .macro = false};
 
 // 11 x 11 plains (no ruins: no chance draws), tribe 0 to move, full obs by default.
 GameState two_tribes(poly::ObsMode mode = poly::ObsMode::Full) {
@@ -136,9 +137,10 @@ TEST(PuctParams, ParsesTheRunnerSpec) {  // A/B variants (ADR-007 §5)
     EXPECT_EQ(parse_puct_params("vision=active").vision, DiffVision::ActiveTribe);
     EXPECT_EQ(d.determinizations, 4);  // ADR-008 §8: adopted by SPRT 2
     EXPECT_EQ(parse_puct_params("K=0").determinizations, 0);
-    EXPECT_FALSE(d.macro);  // ADR-010: flat until its SPRT passes
+    EXPECT_TRUE(d.macro);  // ADR-008 §8: adopted by SPRT 3
     EXPECT_TRUE(parse_puct_params("macro=1").macro);
     EXPECT_FALSE(parse_puct_params("macro=1:macro=0").macro);
+    EXPECT_FALSE(parse_puct_params("macro=0").macro);
 }
 
 TEST(PuctParams, RejectsBadSpecs) {
@@ -343,7 +345,8 @@ TEST(Puct, LeafValueUsesTheConfiguredVision) {  // ADR-008 §4/§7, under fog wh
     const auto obs = poly::observe(s, 0);
     const auto l = legal(obs.view());
     for (const DiffVision v : {DiffVision::ActiveTribe, DiffVision::Player}) {
-        PuctAgent agent(1, {.temperature = 1000.0, .vision = v, .determinizations = 0});
+        PuctAgent agent(
+            1, {.temperature = 1000.0, .vision = v, .determinizations = 0, .macro = false});
         agent.act(obs, l);
         int differ = 0;  // nodes where the two visions disagree: the setting is exercised
         for (std::size_t i = 0; i < agent.nodes().size(); ++i) {
@@ -367,7 +370,7 @@ TEST(Puct, DeterminizedTreesShareTheBudgetAndSumVisits) {  // ADR-009 §2
     s.tick = 6;
     const auto obs = poly::observe(s, 0);
     const auto l = legal(s);
-    PuctAgent agent(1, {.determinizations = 4});
+    PuctAgent agent(1, {.determinizations = 4, .macro = false});  // summed() in `l` order
     const Action a = agent.act(obs, l);
     EXPECT_EQ(agent.last_fm_calls(), PuctAgent::kBudget);  // 4 trees x 500
     int visits = 0;

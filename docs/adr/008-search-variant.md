@@ -44,6 +44,9 @@ forward-model calls (ADR-007 §4: 2,000 per decision). Facts from Phase 2:
    - SPRT 2 `det-k4` (2026-11-11, git 9c4170f): K = 4 determinized trees of 500 calls each (ADR-009) vs. one
      tree on the observation. **H1 accepted** after 500 pairs, pentanomial [69, 0, 325, 0, 106], LLR 3.74
      (bound 2.94), Elo +25.8 (95% +7.8 to +43.8). Adopted: `K=4` is the default.
+   - SPRT 3 `macro` (2026-11-11, git dd50860, both K = 4): macro mode (ADR-010) vs. flat. **H1 accepted** after
+     200 pairs, pentanomial [20, 0, 133, 0, 47], LLR 3.72 (bound 2.94), Elo +47.2 (95% +19.8 to +75.2).
+     Adopted: `macro=1` is the default; `PUCT:macro=0` is the flat variant.
 
 ## Rejected alternatives
 - **Gumbel (sequential halving at the root) from the start:** designed for 16–200 simulations; at 2,000 the gain

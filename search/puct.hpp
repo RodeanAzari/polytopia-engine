@@ -48,7 +48,7 @@ struct PuctParams {
     double temperature = 1.0;                // ADR-008 §3 start value
     DiffVision vision = DiffVision::Player;  // ADR-008 §8: SPRT 1 (own vision beat Tribes' Diff)
     int determinizations = 4;  // ADR-009 K (0 = the observation); 4 by SPRT 2, ADR-008 §8
-    bool macro = false;        // ADR-010: goal-directed moves, pruned never-played actions
+    bool macro = true;  // ADR-010 (goal-directed moves, pruned actions); by SPRT 3, ADR-008 §8
 };
 
 // Agent variants for A/B runs (ADR-007 §5), as the tournament runner names them after "PUCT:": ""

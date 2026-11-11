@@ -1,6 +1,6 @@
 # ADR-010: Macro-actions: goal-directed unit moves and pruned never-played actions
 
-- **Status:** Accepted (2026-11-11, user-approved; kept only if its SPRT passes)
+- **Status:** Accepted (2026-11-11, user-approved); default since SPRT 3 (H1, Elo +47.2; ADR-008 §8)
 - **Date:** 2026-11-11
 
 ## Context
