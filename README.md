@@ -38,8 +38,8 @@ reproduces it. Dashes mean not measured yet.
 | Phase | State |
 |---|---|
 | 1 — Simulator | **Done** (2026-11-08): rule-facts sheet; map load, every action type and legal-action generation bit-exact, with and without fog; the agent's fog-filtered observation matches Tribes' at every decision; 5–6× Tribes' speed; replay viewer; action encoding for search and the policy head ([ADR-006](docs/adr/006-action-encoding.md)) |
-| 2 — Search baselines | **Criteria met** (2026-11-10): Tribes' five baselines reimplemented (Rule Based, OSLA, MC, MCTS, RHEA); on 7,500 games they reproduce Tribes' own agents' results pair by pair ([ADR-007](docs/adr/007-evaluation-protocol.md) §6, [table](docs/media/2026-11-10-baseline-round-robin.md)) |
-| 3 — Action-level MCTS + heuristic priors | Not started |
+| 2 — Search baselines | **Done** (2026-11-10): Tribes' five baselines reimplemented (Rule Based, OSLA, MC, MCTS, RHEA); on 7,500 games they reproduce Tribes' own agents' results pair by pair ([ADR-007](docs/adr/007-evaluation-protocol.md) §6, [table](docs/media/2026-11-10-baseline-round-robin.md)) |
+| 3 — Action-level MCTS + heuristic priors | **In progress** |
 | 4 — Learned policy/value network | Not started (needs GPU time) |
 | 5 — Evaluation | Not started |
 | 6 — Real game, private matches with consenting humans ([ADR-003](docs/adr/003-real-game-phase.md)) | Not started |

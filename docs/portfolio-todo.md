@@ -14,7 +14,7 @@ when the user has confirmed it.
 ## Upcoming (docs/buildplan.md §13.1)
 | Capture | Phase | Status |
 |---|---|---|
-| Baseline round-robin table (Tribes agents and our reimplementations, CIs): `docs/media/2026-11-10-baseline-round-robin.png` + `.md`, README Results | 2 | made 2026-11-10, **awaiting user confirmation** |
+| Baseline round-robin table (Tribes agents and our reimplementations, CIs): `docs/media/2026-11-10-baseline-round-robin.png` + `.md`, README Results | 2 | confirmed by the user 2026-11-10 |
 | Hero GIF: our agent beating RHEA, visit counts on the map (builds on the replay viewer) | 3 | — |
 | Win-rate table vs. every Tribes agent (CIs) | 3 | — |
 | Macro-action vs. flat search comparison | 3 | — |
