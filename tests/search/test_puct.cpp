@@ -134,11 +134,15 @@ TEST(PuctParams, ParsesTheRunnerSpec) {  // A/B variants (ADR-007 §5)
     EXPECT_EQ(d.determinizations,
               0);  // ADR-009: K = 0 (the observation) until an SPRT says otherwise
     EXPECT_EQ(parse_puct_params("K=4").determinizations, 4);
+    EXPECT_FALSE(d.macro);  // ADR-010: flat until its SPRT passes
+    EXPECT_TRUE(parse_puct_params("macro=1").macro);
+    EXPECT_FALSE(parse_puct_params("macro=1:macro=0").macro);
 }
 
 TEST(PuctParams, RejectsBadSpecs) {
-    for (const char* bad : {"c", "c=", "c=x", "c=0", "c=-1", "T=1.5x", "T=inf", "vision=mine",
-                            "K=9", "K=-1", "K=2.5", "k=1", "c=1,T=2"}) {
+    for (const char* bad :
+         {"c", "c=", "c=x", "c=0", "c=-1", "T=1.5x", "T=inf", "vision=mine", "K=9", "K=-1", "K=2.5",
+          "k=1", "c=1,T=2", "macro=2", "macro=", "macro=true"}) {
         EXPECT_TRUE(rejects(bad)) << bad;
     }
 }
@@ -171,6 +175,18 @@ TEST(Puct, OneForwardModelCallPerExpansion) {
         EXPECT_NE(std::ranges::find(l, a), l.end());
         EXPECT_EQ(agent.last_fm_calls(), PuctAgent::kBudget);
         EXPECT_EQ(agent.nodes().size(), static_cast<std::size_t>(PuctAgent::kBudget) + 1);
+        check_tree(agent);
+    }
+}
+
+TEST(Puct, MacroModeTreesKeepTheirBookkeeping) {  // ADR-010: same tree rules, fewer edges
+    for (const auto mode : {poly::ObsMode::Full, poly::ObsMode::Partial}) {
+        const GameState s = two_tribes(mode);
+        PuctAgent agent(5, {.macro = true});
+        const auto l = legal(s);
+        const Action a = agent.act(poly::observe(s, 0), l);
+        EXPECT_NE(std::ranges::find(l, a), l.end());
+        EXPECT_EQ(agent.last_fm_calls(), PuctAgent::kBudget);
         check_tree(agent);
     }
 }

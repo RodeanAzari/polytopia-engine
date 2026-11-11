@@ -16,6 +16,7 @@
 #include "poly/rules.hpp"
 #include "search/agent.hpp"
 #include "search/diff_heuristic.hpp"
+#include "search/macro.hpp"
 
 namespace poly::search {
 
@@ -31,6 +32,10 @@ struct PuctNode {
     std::int32_t parent_edge = -1;  // index into the edge pool
     std::int32_t first_edge = 0;
     std::int32_t num_edges = 0;
+    // Macro mode (ADR-010): the state's full legal set, of which the edges are a subset, in the
+    // agent's legal pool (agent_advance needs exactly the state's own set). Unused otherwise.
+    std::int32_t first_legal = 0;
+    std::int32_t num_legal = 0;
     std::int32_t visits = 0;  // 1 (its own evaluation) + backups through it
     double total = 0.0;
     double value = 0.0;         // its own evaluation (ADR-008 §4)
@@ -39,16 +44,17 @@ struct PuctNode {
 };
 
 struct PuctParams {
-    double c = 1.25;                              // ADR-008 §2 start value
-    double temperature = 1.0;                     // ADR-008 §3 start value
+    double c = 1.25;                         // ADR-008 §2 start value
+    double temperature = 1.0;                // ADR-008 §3 start value
     DiffVision vision = DiffVision::Player;  // ADR-008 §8: SPRT 1 (own vision beat Tribes' Diff)
     int determinizations = 0;  // ADR-009 K: trees on sampled hidden state; 0 = the observation
+    bool macro = false;        // ADR-010: goal-directed moves, pruned never-played actions
 };
 
 // Agent variants for A/B runs (ADR-007 §5), as the tournament runner names them after "PUCT:": ""
 // (the defaults) or key=value items separated by ':' (agent lists and CSV fields use ','):
-// c=<double>, T=<double>, vision=active|own, K=0..8. Throws on anything else (unknown key, bad
-// value, c or T not positive).
+// c=<double>, T=<double>, vision=active|own, K=0..8, macro=0|1. Throws on anything else (unknown
+// key, bad value, c or T not positive).
 PuctParams parse_puct_params(std::string_view spec);
 
 // ADR-008 §3: p_i = exp((s_i − max s)/T) / Σ exp((s_j − max s)/T). `out` gets one prior per score.
@@ -93,8 +99,10 @@ class PuctAgent final : public Agent {
                                            static_cast<std::size_t>(n.num_edges));
     }
     [[nodiscard]] const GameState& state(std::size_t node) const { return states_[node]; }
-    // Root edge stats summed over the last decision's trees (ADR-009 §2), in `legal` order.
+    // Root edge stats summed over the last decision's trees (ADR-009 §2), in the order of the
+    // root's edges: `legal`, or with macro=1 its macro subset (root_actions()).
     [[nodiscard]] std::span<const PuctEdge> summed() const { return summed_; }
+    [[nodiscard]] std::span<const Action> root_actions() const { return root_legal_; }
 
    private:
     // The node for states_[nodes_.size()], with `actions` as its edges.
@@ -119,7 +127,13 @@ class PuctAgent final : public Agent {
     std::vector<Action> actions_;    // parallel to edges_
     std::vector<GameState> states_;  // states_[i] belongs to nodes_[i]; kMaxNodes, reused
     std::vector<int> scores_;
+    std::vector<int> kept_scores_;
     std::vector<double> priors_;
+    MacroFilter macro_;
+    std::vector<std::size_t> keep_;
+    std::vector<Action> root_legal_;  // the root's edges: `legal`, or its macro subset (ADR-010 §5)
+    std::vector<Action>
+        legal_pool_;  // macro mode: each node's full legal set (PuctNode::first_legal)
     ActionList legal_;
     ActionList root_fresh_;  // the root copy's own legal set (agent_advance's membership check)
 };
