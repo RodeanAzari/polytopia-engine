@@ -23,9 +23,12 @@ ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits).
    `tools/sprt_run.sh`; variants are `PUCT:c=..:T=..:vision=..:K=..` (785f484).
 3. ~~Determinization~~ done (4cade7b, `PUCT:K=n`).
    **Running:** SPRT 2 `det-k4` (log `data/results/sprt-det-k4.log`; resume = rerun
-   `tools/sprt_run.sh det-k4 PUCT:K=4 PUCT`, git 9c4170f). Don't rebuild build/release while it runs.
+   `tools/sprt_run.sh det-k4 PUCT:K=4 PUCT`, git 9c4170f code). Don't rebuild build/release while it runs
+   (a runner killed mid-batch resumes cleanly). 400 pairs: LLR 2.21, Elo +21.7 (+1.6 to +42.0).
 4. Tune c, T, K, leaf form (SPRT, dev, Fog condition).
-5. Macro-actions: ADR-010, flat vs. macro comparison.
+5. ~~Macro-actions~~ done (d4ae3c5, `PUCT:macro=1`, ADR-010 accepted by the user; default still flat).
+   **Next:** after SPRT 2 ends (adopt K=4 as default if H1), rebuild build/release and run SPRT 3
+   `tools/sprt_run.sh macro PUCT:macro=1 PUCT`. Flat vs. macro plot comes from the headline run.
 6. Headline: vs. every baseline on test seeds (Paper + Fog); media (table, replay GIF with visit counts).
 
 ### Known oracle caveats
