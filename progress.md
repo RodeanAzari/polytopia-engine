@@ -19,8 +19,8 @@ ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits).
 1. ~~Flat PUCT agent~~ done (a7227f9, "PUCT" in the runner; batch RB scoring fc89bf2, ~55→~26 s/game).
    Smoke on 10 dev levels: vs RB 13/20, vs RHEA 17/20. Own-vision Diff adopted: SPRT 1 H1 after 300 pairs,
    Elo +45.4 (95% +21.8 to +69.4), ADR-008 §8 (the SPRT record), 9c4170f. ~30 min per 100-pair batch.
-2. ~~`tools/sprt.py`~~ done (a84e6c5): `sprt.py <csv> A B` (exit 0 H1, 1 H0, 2 continue, 3 cap). Agent variants
-   for A/B runs still need names with parameters in the runner.
+2. ~~`tools/sprt.py`~~ done (a84e6c5): `sprt.py A B <csv>...` (exit 0 H1, 1 H0, 2 continue, 3 cap), driven by
+   `tools/sprt_run.sh`; variants are `PUCT:c=..:T=..:vision=..:K=..` (785f484).
 3. ~~Determinization~~ done (4cade7b, `PUCT:K=n`).
    **Running:** SPRT 2 `det-k4` (log `data/results/sprt-det-k4.log`; resume = rerun
    `tools/sprt_run.sh det-k4 PUCT:K=4 PUCT`, git 9c4170f). Don't rebuild build/release while it runs.
