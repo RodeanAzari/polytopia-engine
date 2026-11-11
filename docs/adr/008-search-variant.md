@@ -35,6 +35,12 @@ forward-model calls (ADR-007 §4: 2,000 per decision). Facts from Phase 2:
    set after each executed action.
 7. **Tuning:** c, T, the leaf value's form, tree reuse and Gumbel root selection are SPRT experiments on dev
    seeds (ADR-007 §5), each kept only if it passes.
+8. **Tuning record** (dev seeds, Fog, 2,000 FM calls per decision; pentanomial GSPRT H0 0 / H1 20 logistic Elo,
+   α = β = 0.05; logs in `data/results/sprt-<name>.log`):
+   - SPRT 1 `vision-own` (2026-11-11, git f8b92fa): Diff's visible-tiles term from the searching player's vision
+     instead of the active tribe's (Tribes' quirk rewards ending the turn by the number of tiles we can't
+     see). **H1 accepted** after 300 pairs, pentanomial [36, 0, 189, 0, 75], LLR 4.79 (bound 2.94), Elo
+     +45.4 (95% +21.8 to +69.4). Adopted: `vision=own` is the default.
 
 ## Rejected alternatives
 - **Gumbel (sequential halving at the root) from the start:** designed for 16–200 simulations; at 2,000 the gain

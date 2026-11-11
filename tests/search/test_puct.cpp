@@ -125,7 +125,7 @@ TEST(PuctParams, ParsesTheRunnerSpec) {  // A/B variants (ADR-007 §5)
     const auto d = parse_puct_params("");
     EXPECT_DOUBLE_EQ(d.c, 1.25);  // ADR-008 start values
     EXPECT_DOUBLE_EQ(d.temperature, 1.0);
-    EXPECT_EQ(d.vision, DiffVision::ActiveTribe);
+    EXPECT_EQ(d.vision, DiffVision::Player);  // ADR-008 §8: adopted by SPRT 1
     const auto p = parse_puct_params("c=2.5:T=0.5:vision=own");
     EXPECT_DOUBLE_EQ(p.c, 2.5);
     EXPECT_DOUBLE_EQ(p.temperature, 0.5);
