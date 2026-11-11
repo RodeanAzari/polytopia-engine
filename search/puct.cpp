@@ -62,10 +62,7 @@ std::int32_t PuctAgent::add_node(std::int32_t parent, std::int32_t parent_edge,
         // ADR-008 §3: Rule Based scores from the player to move's own observation of this state.
         const Observation o = observe(s, s.active_tribe);
         long long convert_scored = 0;
-        scores_.clear();
-        for (const Action& a : actions) {
-            scores_.push_back(rule_based_score(o, a, convert_scored));
-        }
+        rule_based_scores(o, actions, scores_, convert_scored);
         softmax_priors(scores_, params_.temperature, priors_);
         n.num_edges = static_cast<std::int32_t>(actions.size());
         for (std::size_t i = 0; i < actions.size(); ++i) {

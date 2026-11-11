@@ -4,6 +4,9 @@
 // every legal action gets an integer score from the observation; the agent plays a uniformly random
 // action among those with the best score (never one below -1).
 
+#include <span>
+#include <vector>
+
 #include "poly/rng.hpp"
 #include "search/agent.hpp"
 
@@ -25,5 +28,10 @@ class RuleBasedAgent final : public Agent {
 
 // Sheet 05 §2: the score of action a for the observer of `obs`. `convert_scored` counts Convert.
 int rule_based_score(const Observation& obs, const Action& a, long long& convert_scored);
+
+// The scores of all `actions` (one observation), as rule_based_score gives them, into `out`; the
+// state is scanned once for the whole batch (PUCT priors, ADR-008 §3).
+void rule_based_scores(const Observation& obs, std::span<const Action> actions,
+                       std::vector<int>& out, long long& convert_scored);
 
 }  // namespace poly::search

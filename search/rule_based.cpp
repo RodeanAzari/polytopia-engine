@@ -14,8 +14,13 @@ namespace {
 
 // Sheet 05 conventions, all on the observation `v` of tribe `me`.
 struct View {
-    const GameState* state;
-    int me;
+    const GameState* state = nullptr;
+    int me = 0;
+    // Batch scoring only (rule_based_scores): the visible foreign units in x-major order, and the
+    // last unit looked up by id (a node's actions come grouped by unit). Same results, fewer scans.
+    const std::vector<const Unit*>* foreign = nullptr;
+    mutable std::int32_t last_id = 0;
+    mutable const Unit* last_unit = nullptr;
 
     [[nodiscard]] const GameState& v() const { return *state; }
     [[nodiscard]] const TribeState& mine() const {
@@ -43,8 +48,16 @@ struct View {
         return c == kNoSlot || v().cities[c].tribe < 0 ? nullptr : &v().cities[c];
     }
     [[nodiscard]] const Unit* unit_by_id(std::int32_t id) const {
+        if (id != 0 && id == last_id) {
+            return last_unit;
+        }
         const auto* const it = std::ranges::find(v().units, id, &Unit::id);
-        return id == 0 || it == v().units.end() ? nullptr : &*it;
+        const Unit* u = id == 0 || it == v().units.end() ? nullptr : &*it;
+        if (foreign != nullptr) {  // batch: the state doesn't change between actions
+            last_id = id;
+            last_unit = u;
+        }
+        return u;
     }
     [[nodiscard]] const City* city_by_id(std::int32_t id) const {
         const auto* const it = std::ranges::find(v().cities, id, &City::id);
@@ -108,23 +121,34 @@ int band(int a, int hostile, int low, int high) {
 
 // Move stage 1: the first visible foreign unit (x-major) that the move approaches while it is
 // weaker, or moves away from while it is stronger and in range; 0 if none.
-int move_vs_units(const View& w, const Unit& u, int mx, int my) {
+// Visible units of other tribes, x-major then y (the order stage 1 scans them in).
+void collect_foreign(const View& w, std::vector<const Unit*>& out) {
+    out.clear();
     for (int x = 0; x < w.v().side; ++x) {
         for (int y = 0; y < w.v().side; ++y) {
             const Unit* e = w.visible(x, y) ? w.unit_at(x, y) : nullptr;
-            if (e == nullptr || e->tribe == w.me) {
-                continue;
+            if (e != nullptr && e->tribe != w.me) {
+                out.push_back(e);
             }
-            const bool in_range = dist(e->x, e->y, u.x, u.y) <= range(*e);
-            const int before = dist(u.x, u.y, e->x, e->y);
-            const int after = dist(mx, my, e->x, e->y);
-            const bool weaker = def(*e) < atk(u) && u.hp >= e->hp;
-            if (weaker && after < before) {
-                return 3;
-            }
-            if (!weaker && after > before && in_range) {
-                return 4;
-            }
+        }
+    }
+}
+
+int move_vs_units(const View& w, const Unit& u, int mx, int my) {
+    std::vector<const Unit*> own;
+    if (w.foreign == nullptr) {
+        collect_foreign(w, own);
+    }
+    for (const Unit* e : w.foreign != nullptr ? *w.foreign : own) {
+        const bool in_range = dist(e->x, e->y, u.x, u.y) <= range(*e);
+        const int before = dist(u.x, u.y, e->x, e->y);
+        const int after = dist(mx, my, e->x, e->y);
+        const bool weaker = def(*e) < atk(u) && u.hp >= e->hp;
+        if (weaker && after < before) {
+            return 3;
+        }
+        if (!weaker && after > before && in_range) {
+            return 4;
         }
     }
     return 0;
@@ -384,10 +408,7 @@ int score_city_action(const View& w, const Action& a) {
     }
 }
 
-}  // namespace
-
-int rule_based_score(const Observation& obs, const Action& a, long long& convert_scored) {
-    const View w{.state = &obs.view(), .me = obs.observer()};
+int score(const View& w, const Action& a, long long& convert_scored) {
     switch (a.type) {
         case ActionType::Move:
             return score_move(w, a);
@@ -420,6 +441,23 @@ int rule_based_score(const Observation& obs, const Action& a, long long& convert
             return 0;
         default:
             return score_city_action(w, a);
+    }
+}
+
+}  // namespace
+
+int rule_based_score(const Observation& obs, const Action& a, long long& convert_scored) {
+    return score(View{.state = &obs.view(), .me = obs.observer()}, a, convert_scored);
+}
+
+void rule_based_scores(const Observation& obs, std::span<const Action> actions,
+                       std::vector<int>& out, long long& convert_scored) {
+    std::vector<const Unit*> foreign;
+    const View w{.state = &obs.view(), .me = obs.observer(), .foreign = &foreign};
+    collect_foreign(w, foreign);
+    out.clear();
+    for (const Action& a : actions) {
+        out.push_back(score(w, a, convert_scored));
     }
 }
 

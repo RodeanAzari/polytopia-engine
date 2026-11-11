@@ -3,6 +3,9 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <array>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -10,7 +13,10 @@
 #include "poly/chance.hpp"
 #include "poly/level.hpp"
 #include "poly/observation.hpp"
+#include "poly/rng.hpp"
 #include "poly/rules.hpp"
+#include "search/agent.hpp"
+#include "search/match.hpp"
 #include "search/rule_based.hpp"
 
 namespace {
@@ -141,6 +147,30 @@ TEST(RuleBased, MoveStagesInOrder) {
     EXPECT_EQ(score(s, move), 3);
 }
 
+// Move stage 1 considers only foreign units on the observer's visible tiles (sheet 05).
+TEST(RuleBased, MoveStageOneSkipsUnseenUnits) {
+    GameState s = two_tribes();
+    const Slot w = place(s, 0, poly::UnitType::Warrior, 5, 5, 10);
+    s.terrain[static_cast<std::size_t>(s.index(5, 6))] = poly::Terrain::Village;
+    const Action move{.type = ActionType::Move, .actor = s.units[w].id, .x = 5, .y = 6};
+    place(s, 1, poly::UnitType::Archer, 6, 9, 10);  // weaker and approached: 3 when seen
+    EXPECT_EQ(score(s, move), 3);
+    s.tribes[0].visible.reset(static_cast<std::size_t>(s.index(6, 9)));
+    EXPECT_EQ(score(s, move), 5);  // unseen: stage 2's village decides
+}
+
+// Move stage 1 takes the first matching unit in x-major order (sheet 05): here the stronger
+// archer at x = 4 (moved away from, in its range: 4) before the weaker one at x = 6 (approached:
+// 3), although the latter comes first by y.
+TEST(RuleBased, MoveStageOneScansXMajor) {
+    GameState s = two_tribes();
+    const Slot w = place(s, 0, poly::UnitType::Warrior, 5, 5, 10);
+    const Action move{.type = ActionType::Move, .actor = s.units[w].id, .x = 5, .y = 4};
+    place(s, 1, poly::UnitType::Archer, 4, 7, 15);  // HP above ours: not weaker; range 2
+    place(s, 1, poly::UnitType::Archer, 6, 1, 5);   // DEF 1 < ATK 2, HP below ours: weaker
+    EXPECT_EQ(score(s, move), 4);
+}
+
 // Fixed scores and End turn.
 TEST(RuleBased, FixedScores) {
     const GameState s = two_tribes();
@@ -170,6 +200,76 @@ TEST(RuleBased, PicksOnlyTheBestScore) {
     for (int k = 0; k < 50; ++k) {
         const Action a = agent.act(obs, {legal.begin(), legal.end()});
         EXPECT_EQ(poly::search::rule_based_score(obs, a, converts), best);
+    }
+}
+
+}  // namespace
+
+namespace {
+
+// Plays uniformly at random and, at every decision, checks the batch scores against the
+// one-action scores (rule_based_scores is an optimisation of rule_based_score, nothing else).
+struct BatchStats {
+    long long decisions = 0;
+    long long mismatches = 0;
+    long long with_foreign = 0;  // decisions where a foreign unit was visible (stage 1 can score)
+};
+
+bool sees_foreign(const poly::Observation& obs) {
+    const poly::GameState& v = obs.view();
+    const auto& visible = v.tribes[static_cast<std::size_t>(obs.observer())].visible;
+    return std::ranges::any_of(v.units, [&](const poly::Unit& u) {
+        return u.id != 0 && u.tribe != obs.observer() &&
+               visible.test(static_cast<std::size_t>(v.index(u.x, u.y)));
+    });
+}
+
+class BatchChecker final : public poly::search::Agent {
+   public:
+    BatchChecker(std::uint64_t seed, BatchStats& stats) : rng_(seed), stats_(&stats) {}
+    Action act(const poly::Observation& obs, std::span<const Action> legal) override {
+        long long converts = 0;
+        poly::search::rule_based_scores(obs, legal, batch_, converts);
+        ++stats_->decisions;
+        bool same = batch_.size() == legal.size();
+        for (std::size_t i = 0; same && i < legal.size(); ++i) {
+            same = batch_[i] == poly::search::rule_based_score(obs, legal[i], converts);
+        }
+        stats_->mismatches += same ? 0 : 1;
+        stats_->with_foreign += sees_foreign(obs) ? 1 : 0;
+        return legal[rng_.below(static_cast<std::uint32_t>(legal.size()))];
+    }
+
+   private:
+    poly::Rng rng_;
+    BatchStats* stats_;
+    std::vector<int> batch_;
+};
+
+BatchStats play_checked(poly::ObsMode mode, std::uint64_t seed) {
+    GameState s = two_tribes();
+    s.obs = mode;
+    BatchStats stats;
+    BatchChecker a(seed, stats);
+    BatchChecker b(seed + 100, stats);
+    std::array<poly::search::Agent*, 2> agents{&a, &b};
+    poly::search::play_match(s, agents, seed);
+    return stats;
+}
+
+TEST(RuleBased, BatchScoresEqualSingleScores) {
+    using poly::ObsMode;
+    const std::array<std::pair<ObsMode, std::uint64_t>, 6> games{{{ObsMode::Full, 1},
+                                                                  {ObsMode::Full, 2},
+                                                                  {ObsMode::Full, 3},
+                                                                  {ObsMode::Partial, 1},
+                                                                  {ObsMode::Partial, 2},
+                                                                  {ObsMode::Partial, 3}}};
+    for (const auto& [mode, seed] : games) {
+        const BatchStats st = play_checked(mode, seed);
+        EXPECT_EQ(st.mismatches, 0) << "seed " << seed;
+        EXPECT_GT(st.with_foreign, 0) << "seed " << seed;  // stage 1 exercised
+        EXPECT_GT(st.decisions, 200);
     }
 }
 
