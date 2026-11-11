@@ -16,7 +16,9 @@ Design: ADR-008 (PUCT, Rule Based softmax priors, Diff leaf, min/max-normalised 
 ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits). Tuning: SPRT on dev only.
 
 ### Plan
-1. Flat PUCT agent, K = 1 (`search/puct`), tests + bug injection; smoke vs. baselines on dev seeds.
+1. ~~Flat PUCT agent~~ done (a7227f9, "PUCT" in the runner; batch RB scoring fc89bf2, ~55→~26 s/game).
+   Smoke on 10 dev levels: vs RB 13/20, vs RHEA 17/20. Open: Diff's active-tribe-vision quirk in our leaf value
+   (notebook 2026-11-10) → first SPRT experiment (quirk-free Diff).
 2. `tools/sprt.py` (pentanomial GSPRT, ADR-007 §5), tested against published fishtest examples.
 3. Determinization (`search/determinize`, ADR-009) incl. leak property tests; SPRT vs. K = 1.
 4. Tune c, T, K, leaf form (SPRT, dev, Fog condition).
