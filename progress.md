@@ -21,7 +21,9 @@ ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits).
    End Turn the leaf value jumps by unseen tiles) → first SPRT experiment (own-vision Diff).
 2. ~~`tools/sprt.py`~~ done (a84e6c5): `sprt.py <csv> A B` (exit 0 H1, 1 H0, 2 continue, 3 cap). Agent variants
    for A/B runs still need names with parameters in the runner.
-3. Determinization (`search/determinize`, ADR-009) incl. leak property tests; SPRT vs. K = 1.
+3. ~~Determinization~~ done (4cade7b, `PUCT:K=n`); SPRT K=4 vs K=0 after the vision SPRT.
+   **Running:** SPRT `vision-own` (log `data/results/sprt-vision-own.log`; resume = rerun
+   `tools/sprt_run.sh vision-own PUCT:vision=own PUCT`). Don't rebuild build/release while it runs.
 4. Tune c, T, K, leaf form (SPRT, dev, Fog condition).
 5. Macro-actions: ADR-010, flat vs. macro comparison.
 6. Headline: vs. every baseline on test seeds (Paper + Fog); media (table, replay GIF with visit counts).
