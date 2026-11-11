@@ -29,6 +29,8 @@ ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits).
    `data/results/sprt-macro.log`; rerun to resume). Don't rebuild build/release while it runs.
    Flat vs. macro plot comes from the headline run.
 6. Headline: vs. every baseline on test seeds (Paper + Fog); media (table, replay GIF with visit counts).
+   Tooling ready: `make replay-game LEVEL= AGENTS= SEED=` re-records a CSV row's game with PUCT visit counts;
+   viewer overlay; `tools/replay_gif.py` (≤ 8 MB). Game count / tuning-first: ask the user.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
