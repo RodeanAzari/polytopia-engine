@@ -31,7 +31,7 @@ add_executable(tournament tools/tournament.cpp)
 target_link_libraries(tournament PRIVATE poly_search)
 
 add_executable(record tools/record.cpp)
-target_link_libraries(record PRIVATE poly_sim)
+target_link_libraries(record PRIVATE poly_search)
 
 include(FetchContent)
 FetchContent_Declare(googletest

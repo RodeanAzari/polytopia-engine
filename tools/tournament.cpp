@@ -24,25 +24,12 @@
 #include <utility>
 #include <vector>
 
+#include "agents.hpp"
 #include "poly/types.hpp"
 #include "random_game.hpp"
 #include "search/match.hpp"
-#include "search/mc.hpp"
-#include "search/mcts.hpp"
-#include "search/osla.hpp"
-#include "search/puct.hpp"
-#include "search/random_agent.hpp"
-#include "search/rhea.hpp"
-#include "search/rule_based.hpp"
 
 namespace {
-
-std::uint64_t mix(std::uint64_t a, std::uint64_t b) {  // SplitMix64 of a combined value
-    std::uint64_t z = (a * 0x9E3779B97F4A7C15ULL) + b + 0x632BE59BD9B4E019ULL;
-    z = (z ^ (z >> 30U)) * 0xBF58476D1CE4E5B9ULL;
-    z = (z ^ (z >> 27U)) * 0x94D049BB133111EBULL;
-    return z ^ (z >> 31U);
-}
 
 std::uint64_t hash_string(const std::string& s) {  // FNV-1a
     std::uint64_t h = 0xCBF29CE484222325ULL;
@@ -50,34 +37,6 @@ std::uint64_t hash_string(const std::string& s) {  // FNV-1a
         h = (h ^ static_cast<unsigned char>(c)) * 0x100000001B3ULL;
     }
     return h;
-}
-
-std::unique_ptr<poly::search::Agent> make_agent(const std::string& name, std::uint64_t seed) {
-    if (name == "Random") {
-        return std::make_unique<poly::search::RandomAgent>(seed);
-    }
-    if (name == "RuleBased") {
-        return std::make_unique<poly::search::RuleBasedAgent>(seed);
-    }
-    if (name == "OSLA") {
-        return std::make_unique<poly::search::OslaAgent>(seed);
-    }
-    if (name == "MC") {
-        return std::make_unique<poly::search::McAgent>(seed);
-    }
-    if (name == "MCTS") {
-        return std::make_unique<poly::search::MctsAgent>(seed);
-    }
-    if (name == "RHEA") {
-        return std::make_unique<poly::search::RheaAgent>(seed);
-    }
-    if (name == "PUCT" || name.starts_with("PUCT:")) {  // ours, ADR-008; e.g. PUCT:c=1.5:vision=own
-        const std::string_view spec =
-            name.size() > 5 ? std::string_view(name).substr(5) : std::string_view{};
-        return std::make_unique<poly::search::PuctAgent>(seed,
-                                                         poly::search::parse_puct_params(spec));
-    }
-    throw std::runtime_error("unknown agent: " + name);
 }
 
 struct Game {
@@ -172,12 +131,12 @@ const char* result_of_tribe0(const poly::search::MatchResult& r) {
 
 // Plays game g and returns its CSV row.
 std::string play(const Options& o, const Game& g) {
-    const std::uint64_t game_seed =
-        mix(mix(hash_string(o.id), g.level_seed), static_cast<std::uint64_t>(g.rep));
+    const std::uint64_t game_seed = polytools::mix(polytools::mix(hash_string(o.id), g.level_seed),
+                                                   static_cast<std::uint64_t>(g.rep));
     auto level = polytools::load_level_file(
         g.level_path, o.partial ? poly::ObsMode::Partial : poly::ObsMode::Full);
-    const auto a0 = make_agent(g.agent0, mix(game_seed, 1));
-    const auto a1 = make_agent(g.agent1, mix(game_seed, 2));
+    const auto a0 = polytools::make_agent(g.agent0, polytools::agent_seed(game_seed, 0));
+    const auto a1 = polytools::make_agent(g.agent1, polytools::agent_seed(game_seed, 1));
     const std::array<poly::search::Agent*, 2> seats = {a0.get(), a1.get()};
     const auto t0 = std::chrono::steady_clock::now();
     const auto r = poly::search::play_match(level.state, seats, game_seed);
@@ -248,7 +207,7 @@ int main(int argc, char** argv) {
         o.partial = opt(args, "obs", "full") == "partial";
         o.jobs = std::stoi(opt(args, "jobs", "4"));
         for (const std::string& a : o.agents) {
-            (void)make_agent(a, 0);  // unknown names fail before any game
+            (void)polytools::make_agent(a, 0);  // unknown names fail before any game
         }
         return run(o);
     } catch (const std::exception& e) {

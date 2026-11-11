@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <vector>
@@ -90,6 +91,102 @@ TEST(Match, FullRankingTieIsADraw) {
     ASSERT_TRUE(poly::update_game_over(t));
     EXPECT_FALSE(t.ranking_tied);
     EXPECT_EQ(t.tribes[1].result, poly::Result::Win);
+}
+
+// Counts the legal non-End-turn actions it plays (the ones play_match must report as Action).
+class Counting final : public poly::search::Agent {
+   public:
+    explicit Counting(std::uint64_t seed) : random_(seed) {}
+    Action act(const poly::Observation& obs, std::span<const Action> legal) override {
+        const Action a = random_.act(obs, legal);
+        moves_ += a.type != poly::ActionType::EndTurn ? 1 : 0;
+        return a;
+    }
+    [[nodiscard]] long long moves() const { return moves_; }
+
+   private:
+    poly::search::RandomAgent random_;
+    long long moves_ = 0;
+};
+
+// A reported Move shows the state after it: the unit is on its destination.
+bool arrived(const GameState& st, const Action& act) {
+    if (act.type != poly::ActionType::Move) {
+        return true;
+    }
+    const poly::Slot u = poly::unit_by_id(st, act.actor);
+    return u != poly::kNoSlot && st.units[u].x == act.x && st.units[u].y == act.y;
+}
+
+// A reported turn start shows the state after start_turn: the tribe's units are refreshed.
+bool refreshed(const GameState& st) {
+    return std::ranges::none_of(st.units, [&](const poly::Unit& u) {
+        return u.id != 0 && u.tribe == st.active_tribe && u.status != poly::TurnStatus::Fresh &&
+               u.status != poly::TurnStatus::Moved;
+    });
+}
+
+// Event counts and the number of out-of-order events (an Action outside its turn or by another
+// tribe, a start inside a turn, an end outside one).
+struct EventLog {
+    int starts = 0;
+    int ends = 0;
+    long long actions = 0;
+    long long moves = 0;
+    int bad = 0;
+    int turn_tribe = -1;
+    bool in_turn = false;
+
+    void on(const GameState& st, poly::search::MatchEvent e, const Action& act) {
+        using poly::search::MatchEvent;
+        if (e == MatchEvent::TurnStart) {
+            bad += in_turn || !refreshed(st) ? 1 : 0;
+            in_turn = true;
+            turn_tribe = st.active_tribe;
+            ++starts;
+        } else if (e == MatchEvent::Action) {
+            const bool ok =
+                in_turn && st.active_tribe == turn_tribe && act.type != poly::ActionType::EndTurn;
+            bad += ok && arrived(st, act) ? 0 : 1;
+            ++actions;
+            moves += act.type == poly::ActionType::Move ? 1 : 0;
+        } else {
+            bad += in_turn ? 0 : 1;
+            in_turn = false;
+            ++ends;
+        }
+    }
+};
+
+void expect_same_game(const poly::search::MatchResult& a, const poly::search::MatchResult& b) {
+    EXPECT_EQ(a.decisions, b.decisions);
+    EXPECT_EQ(a.ticks, b.ticks);
+    EXPECT_EQ(a.score, b.score);
+    EXPECT_EQ(a.winner, b.winner);
+}
+
+// The recording hook (tools/record.cpp) sees every executed action, between its turn's start and
+// end, and cannot change the game.
+TEST(Match, ObserverSeesEveryEventAndChangesNothing) {
+    const GameState s = two_tribes();
+    Counting a(5);
+    Counting b(6);
+    const std::array<poly::search::Agent*, 2> seats = {&a, &b};
+    EventLog log;
+    const auto r1 = poly::search::play_match(
+        s, seats, 42, [&](const GameState& st, poly::search::MatchEvent e, const Action& act) {
+            log.on(st, e, act);
+        });
+    EXPECT_EQ(log.bad, 0);
+    EXPECT_FALSE(log.in_turn);
+    EXPECT_EQ(log.starts, log.ends);
+    EXPECT_GT(log.starts, 10);
+    EXPECT_GT(log.moves, 10);  // the after-state check is exercised
+    EXPECT_EQ(log.actions, a.moves() + b.moves());
+    poly::search::RandomAgent a2(5);
+    poly::search::RandomAgent b2(6);
+    const std::array<poly::search::Agent*, 2> plain = {&a2, &b2};
+    expect_same_game(r1, poly::search::play_match(s, plain, 42));
 }
 
 }  // namespace

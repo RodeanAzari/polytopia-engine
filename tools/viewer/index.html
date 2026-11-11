@@ -6,7 +6,7 @@
 <title>Replay Viewer</title>
 <!-- Replay viewer for poly-replay-1 files (tools/record.cpp, `make replay`). Self-contained, no game assets:
      plain shapes and letters on a square grid. Open this file in a browser and choose a replay, drop one on the
-     page, or serve the repo and pass ?src=<path-or-url>. -->
+     page, or serve the repo and pass ?src=<path-or-url> (optional &frame=N, &view=T). -->
 <style>
   :root {
     --surface: #fcfcfb; --panel: #f3f2ef; --ink: #0b0b0b; --ink2: #52514e; --line: #d9d8d3;
@@ -41,6 +41,11 @@
   #drop { padding: 48px 16px; text-align: center; color: var(--ink2); border: 2px dashed var(--line);
           border-radius: 8px; margin: 16px; }
   .hidden { display: none !important; }
+  .vrow { display: grid; grid-template-columns: 3.2em 1fr; gap: 6px; align-items: center; font-size: 12px; margin-top: 4px; }
+  .vrow .bar { height: 4px; background: var(--ink2); border-radius: 2px; margin-top: 2px; }
+  .vrow.played { font-weight: 700; }
+  .vrow.played .bar { background: var(--hl); }
+  .vrow .pct { text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -74,7 +79,9 @@
         <select id="view"></select>
         <button id="png" title="Save the board as PNG">Save PNG</button>
       </div>
+      <label class="controls" style="margin-top:8px"><input type="checkbox" id="showVisits" checked> Search visits (agent games)</label>
     </div>
+    <div class="card hidden" id="visitsCard"></div>
     <div class="card"><table id="tribes"></table></div>
     <div class="card legend" id="legend"></div>
   </aside>
@@ -103,11 +110,13 @@ function load(text, name) {
   for (const f of r.frames) {
     const merged = { ...prev, ...f };
     if (!("hl" in f)) delete merged.hl;
+    if (!("vc" in f)) { delete merged.vc; delete merged.vt; }  // per decision, never carried
     full.push(merged);
     prev = merged;
   }
   replay = r; frames = full; cur = 0;
-  $("meta").textContent = `${name} · ${r.tribes.length} tribes · ${r.mode} · ${r.obs} obs · ${r.side}×${r.side} · seed ${r.seed} · ${frames.length} frames`;
+  const agents = r.agents ? ` · ${r.agents.map((a, i) => `${i}: ${a}`).join(" vs ")} · game seed ${r.game_seed}` : "";
+  $("meta").textContent = `${name}${agents} · ${r.tribes.length} tribes · ${r.mode} · ${r.obs} obs · ${r.side}×${r.side} · seed ${r.seed} · ${frames.length} frames`;
   $("slider").max = frames.length - 1;
   const view = $("view");
   view.innerHTML = '<option value="-1">All (true state)</option>' +
@@ -251,6 +260,7 @@ function draw() {
       arrow(g, cx(y0), cy(x0), cx(y1), cy(x1), px * 0.3);
     }
   }
+  if (f.vc && $("showVisits").checked) visitOverlay(g, f, px, cx, cy);
   // Grid.
   g.strokeStyle = "#00000014"; g.lineWidth = 1;
   for (let k = 0; k <= n; ++k) {
@@ -258,6 +268,51 @@ function draw() {
     g.beginPath(); g.moveTo(0, k * px + 0.5); g.lineTo(size, k * px + 0.5); g.stroke();
   }
   panel(f);
+}
+
+// The search's most visited root actions for the decision that led to this frame (record.cpp vc):
+// actor -> target arrows, width and opacity by visit share, the share printed on the target tile.
+// The played action is the highlighted (hl) one; actions without a tile are listed in the panel only.
+function visitOverlay(g, f, px, cx, cy) {
+  const labels = new Map();
+  for (const [x0, y0, x1, y1, visits, text] of f.vc) {
+    const share = visits / f.vt;
+    if (x0 < 0 || text === f.d) continue;  // no tile, or drawn as the played action
+    const tx = x1 >= 0 ? x1 : x0, ty = x1 >= 0 ? y1 : y0;
+    g.save();
+    g.globalAlpha = 0.35 + 0.65 * Math.sqrt(share);
+    g.strokeStyle = "#0b0b0b"; g.lineWidth = 1.5 + 6 * share;
+    if (x1 >= 0 && (x1 !== x0 || y1 !== y0)) visitArrow(g, cx(y0), cy(x0), cx(ty), cy(tx), px * 0.3);
+    else { g.beginPath(); g.arc(cx(ty), cy(tx), px * 0.36, 0, 7); g.stroke(); }
+    g.restore();
+    const key = `${tx},${ty}`;
+    labels.set(key, (labels.get(key) || 0) + share);
+  }
+  const played = f.vc.find(e => e[5] === f.d);
+  if (played && played[0] >= 0) {
+    const tx = played[2] >= 0 ? played[2] : played[0], ty = played[2] >= 0 ? played[3] : played[1];
+    const key = `${tx},${ty}`;
+    labels.set(key, (labels.get(key) || 0) + played[4] / f.vt);
+  }
+  g.font = `700 ${Math.max(9, px * 0.22)}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+  for (const [key, share] of labels) {
+    if (share < 0.02) continue;  // arrows only: a label per tiny share is clutter
+    const [tx, ty] = key.split(",").map(Number);
+    const text = `${Math.round(100 * share)}%`, w = g.measureText(text).width + 6, h = px * 0.28;
+    const bx = cx(ty) - w / 2, by = tx * px + 2;
+    g.fillStyle = "#0b0b0bcc"; g.fillRect(bx, by, w, h);
+    g.fillStyle = "#ffffff"; g.fillText(text, cx(ty), by + h / 2 + 0.5);
+  }
+}
+
+function visitArrow(g, x0, y0, x1, y1, inset) {
+  const a = Math.atan2(y1 - y0, x1 - x0), len = Math.hypot(x1 - x0, y1 - y0) - inset;
+  const ex = x0 + Math.cos(a) * len, ey = y0 + Math.sin(a) * len, head = 6 + g.lineWidth;
+  g.beginPath(); g.moveTo(x0, y0); g.lineTo(ex - Math.cos(a) * head * 0.6, ey - Math.sin(a) * head * 0.6); g.stroke();
+  g.beginPath(); g.moveTo(ex, ey);
+  g.lineTo(ex - head * Math.cos(a - 0.45), ey - head * Math.sin(a - 0.45));
+  g.lineTo(ex - head * Math.cos(a + 0.45), ey - head * Math.sin(a + 0.45));
+  g.closePath(); g.fillStyle = g.strokeStyle; g.fill();
 }
 
 function tri(g, x, y, h, color) {
@@ -281,6 +336,18 @@ function panel(f) {
   const who = f.p >= 0 ? `tribe ${f.p} (${replay.tribes[f.p]})` : "";
   $("where").textContent = `Frame ${cur + 1} / ${frames.length} · turn ${f.t}${who ? " · " + who : ""}`;
   $("event").textContent = f.d;
+  const card = $("visitsCard");
+  card.classList.toggle("hidden", !f.vc);
+  if (f.vc) {
+    const agent = replay.agents ? replay.agents[f.p] : "search";
+    const esc = t => t.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    card.innerHTML = `<div class="sub">${esc(agent)}: root visits of this decision (${f.vt}), top ${f.vc.length}</div>` +
+      f.vc.map(([, , , , visits, text]) => {
+        const share = visits / f.vt;
+        return `<div class="vrow${text === f.d ? " played" : ""}"><span class="pct">${(100 * share).toFixed(1)}%</span>` +
+          `<span>${esc(text)}<div class="bar" style="width:${Math.max(1, 100 * share)}%"></div></span></div>`;
+      }).join("");
+  }
   const counts = replay.tribes.map(() => ({ cities: 0, units: 0 }));
   for (const c of f.cities) if (c[1] >= 0) counts[c[1]].cities++;
   for (const u of f.units) counts[u[2]].units++;
@@ -322,6 +389,7 @@ $("nextTurn").onclick = () => turnStep(1);
 $("play").onclick = togglePlay;
 $("speed").onchange = () => { if (timer) { togglePlay(); togglePlay(); } };
 $("view").onchange = draw;
+$("showVisits").onchange = draw;
 $("png").onclick = () => {
   const a = document.createElement("a");
   a.download = `replay-${replay.seed}-frame${cur + 1}.png`;
@@ -335,7 +403,13 @@ document.addEventListener("keydown", e => {
   if (e.key === " ") { togglePlay(); e.preventDefault(); }
 });
 const src = new URLSearchParams(location.search).get("src");
-if (src) fetch(src).then(r => r.text()).then(t => load(t, src)).catch(err => alert("Could not fetch " + src + ": " + err.message));
+// ?frame=N (1-based) opens that frame, ?view=T views as tribe T: for captures (screenshots, GIFs).
+const params = new URLSearchParams(location.search);
+if (src) fetch(src).then(r => r.text()).then(t => {
+  load(t, src);
+  if (params.has("view")) $("view").value = params.get("view");
+  go(+(params.get("frame") || 1) - 1);
+}).catch(err => alert("Could not fetch " + src + ": " + err.message));
 </script>
 </body>
 </html>

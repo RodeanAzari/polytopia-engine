@@ -9,7 +9,13 @@
 
 namespace poly::search {
 
-MatchResult play_match(GameState s, std::span<Agent* const> agents, std::uint64_t seed) {
+MatchResult play_match(GameState s, std::span<Agent* const> agents, std::uint64_t seed,
+                       const MatchObserver& on_event) {
+    const auto report = [&](MatchEvent e, const Action& a) {
+        if (on_event) {
+            on_event(s, e, a);
+        }
+    };
     check(std::cmp_equal(agents.size(), s.num_tribes), "play_match: one agent per tribe");
     SampledChance chance(seed);
     ActionList legal;
@@ -21,6 +27,7 @@ MatchResult play_match(GameState s, std::span<Agent* const> agents, std::uint64_
             break;
         }
         start_turn(s, p);
+        report(MatchEvent::TurnStart, Action{});
         legal_actions(s, legal);
         bool ask = true;  // Tribes' continueTurn: decided before the chosen action runs
         while (ask) {
@@ -35,6 +42,7 @@ MatchResult play_match(GameState s, std::span<Agent* const> agents, std::uint64_
                 ++r.illegal;  // Tribes: the action can't execute, nothing changes
             } else {
                 apply_action(s, a, chance);
+                report(MatchEvent::Action, a);
                 legal_actions(s, legal);
             }
             if (update_game_over(s)) {
@@ -42,6 +50,7 @@ MatchResult play_match(GameState s, std::span<Agent* const> agents, std::uint64_
             }
         }
         end_turn(s);
+        report(MatchEvent::TurnEnd, Action{});
         update_game_over(s);
     }
     r.ticks = s.tick;

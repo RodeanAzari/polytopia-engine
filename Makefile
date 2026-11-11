@@ -4,7 +4,7 @@ TRIBES_COMMIT := 270e7e564630e5ef3dcc04c96dd66f58ef7273f3
 GEN := $(shell command -v ninja >/dev/null 2>&1 && echo "-G Ninja")
 JOBS ?= $(shell nproc)
 
-.PHONY: setup oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender difftest-batched difftest-fm build test tidy format clean difftest bench replay tournament selfplay train plots ci
+.PHONY: replay-game setup oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender difftest-batched difftest-fm build test tidy format clean difftest bench replay tournament selfplay train plots ci
 
 # Tribes is unlicensed: cloned locally at a pinned commit, never committed (ADR-002).
 setup:
@@ -53,6 +53,7 @@ oracle-log:
 OBS ?= full
 PO := $(if $(filter partial,$(OBS)),-po,)
 OBSFLAG := $(if $(filter partial,$(OBS)),--partial,)
+comma := ,
 
 # Map-load difftest: N oracle initial states (2..8 players, all tribes) vs. our loader + dump (05 §1).
 difftest-init: build
@@ -108,6 +109,13 @@ replay: build
 	  $(REPLAY_PLAYERS) $(REPLAY_MODE) $(REPLAY_SEED) 1 0 ../../build/replays/levels > /dev/null)
 	build/release/record $(REPLAY_LEVEL) build/replays/game-$(REPLAY_PLAYERS)-$(REPLAY_MODE)-$(REPLAY_SEED)-$(OBS).json $(OBSFLAG)
 	@echo "open tools/viewer/index.html in a browser and choose that file"
+
+# One recorded agent game, re-played from a tournament CSV row (its level file, agents in seat order
+# and game seed reproduce that game; tools/agents.hpp). PUCT decisions carry root visit counts (vc).
+#   make replay-game LEVEL=build/levels/test/level-....txt AGENTS=PUCT,RHEA SEED=<gameSeed> [OBS=partial]
+replay-game: build
+	build/release/record $(LEVEL) build/replays/game-$(subst :,_,$(subst $(comma),-vs-,$(AGENTS)))-$(SEED)-$(OBS).json $(OBSFLAG) --agents=$(AGENTS) --seed=$(SEED)
+	@echo "serve the repo (python3 -m http.server) and open tools/viewer/index.html?src=../../<that file>"
 
 # Speed chart from repeat bench runs (default: every data/results/bench-*.csv; pass BENCH_CSV= to choose).
 # docs/buildplan.md §13.2: dated name; the sidecar .md next to it is written by hand.
