@@ -31,7 +31,9 @@ uses the pair (§5).
 - **Level seeds** come from fixed lists checked into `data/seeds/`: `paper-25.txt` (the 25 stock
   `tournament.json` seeds, for the paper replication only), `dev.txt` and `test.txt` (disjoint, generated once
   from a recorded master seed). **Tuning and SPRT use only dev; headline results use only test**, so no
-  reported number comes from the seeds the engine was tuned on.
+  reported number comes from the seeds the engine was tuned on. Generated 2026-11-10 by
+  `oracle/scripts/make_seed_lists.py` (master seed 20261110, 100 seeds each, disjoint from paper-25; `--check`
+  verifies the files). Levels: `make tournament SEEDS=data/seeds/dev.txt` exports them via Tribes.
 - **Game seed** = a fixed hash of (tournament id, level seed, repetition), shared by both games of a pair.
   Every RNG in the game and in our agents derives from it and the seat (CLAUDE.md §5), so any game on our
   simulator replays exactly from its CSV row. Tribes runs record the level seed but are only statistically
