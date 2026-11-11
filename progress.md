@@ -28,7 +28,7 @@ baseline round-robin table.
 1. Evaluate `ours-rr-20261110` against ADR-007 §6 (1: beat Random ≥ 95% lower bound; 2: no reversed direction on
    Tribes-resolved pairs; 3: per-pair interval overlap with tribes-rr-20261108). A failing pair = investigate
    as a reimplementation bug first. Then the Phase 2 media (round-robin table) and portfolio note.
-2. dev/test seed lists (ADR-007 §2) before any Phase 3 tuning.
+2. dev/test seed lists: done (c92fca5, `data/seeds/{dev,test}.txt`, 100 each; tune on dev only, report on test).
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
