@@ -17,8 +17,8 @@ ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits).
 
 ### Plan
 1. ~~Flat PUCT agent~~ done (a7227f9, "PUCT" in the runner; batch RB scoring fc89bf2, ~55→~26 s/game).
-   Smoke on 10 dev levels: vs RB 13/20, vs RHEA 17/20. Open: Diff's active-tribe-vision quirk in our leaf value
-   (notebook 2026-11-10) → first SPRT experiment (quirk-free Diff).
+   Smoke on 10 dev levels: vs RB 13/20, vs RHEA 17/20. Open: Diff's active-tribe-vision quirk (fog only: past
+   End Turn the leaf value jumps by unseen tiles) → first SPRT experiment (own-vision Diff).
 2. ~~`tools/sprt.py`~~ done (a84e6c5): `sprt.py <csv> A B` (exit 0 H1, 1 H0, 2 continue, 3 cap). Agent variants
    for A/B runs still need names with parameters in the runner.
 3. Determinization (`search/determinize`, ADR-009) incl. leak property tests; SPRT vs. K = 1.
