@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <stdexcept>
+#include <string>
 
 #include "poly/observation.hpp"
 #include "search/diff_heuristic.hpp"
@@ -38,6 +40,45 @@ double puct_score(double q_hat, double prior, int parent_visits, int edge_visits
                   bool maximise) {
     return (maximise ? q_hat : 1.0 - q_hat) +
            (c * prior * std::sqrt(static_cast<double>(parent_visits)) / (1.0 + edge_visits));
+}
+
+PuctParams parse_puct_params(std::string_view spec) {
+    PuctParams p;
+    while (!spec.empty()) {
+        const std::size_t sep = spec.find(':');
+        const std::string_view item = spec.substr(0, sep);
+        spec = sep == std::string_view::npos ? std::string_view{} : spec.substr(sep + 1);
+        const std::size_t eq = item.find('=');
+        if (eq == std::string_view::npos) {
+            throw std::invalid_argument("puct: expected key=value, got '" + std::string(item) +
+                                        "'");
+        }
+        const std::string key(item.substr(0, eq));
+        const std::string value(item.substr(eq + 1));
+        if (key == "c" || key == "T") {
+            std::size_t used = 0;
+            double v = 0.0;
+            try {
+                v = std::stod(value, &used);
+            } catch (const std::logic_error&) {
+                used = 0;
+            }
+            if (used == 0 || used != value.size() || !(v > 0.0) || !std::isfinite(v)) {
+                std::string msg = "puct: ";
+                msg += key;
+                msg += " must be a positive number, got '";
+                msg += value;
+                msg += "'";
+                throw std::invalid_argument(msg);
+            }
+            (key == "c" ? p.c : p.temperature) = v;
+        } else if (key == "vision" && (value == "active" || value == "own")) {
+            p.vision = value == "own" ? DiffVision::Player : DiffVision::ActiveTribe;
+        } else {
+            throw std::invalid_argument("puct: unknown parameter '" + std::string(item) + "'");
+        }
+    }
+    return p;
 }
 
 PuctAgent::PuctAgent(std::uint64_t seed, PuctParams params)
@@ -79,7 +120,7 @@ std::int32_t PuctAgent::add_node(std::int32_t parent, std::int32_t parent_edge,
 // largest magnitude seen so far + 1), so it ranks beyond every non-terminal value.
 double PuctAgent::evaluate(std::int32_t node) const {
     const GameState& s = states_[static_cast<std::size_t>(node)];
-    const double diff = diff_heuristic(*root_, s, player_);
+    const double diff = diff_heuristic(*root_, s, player_, params_.vision);
     if (!s.game_over) {
         return diff;
     }

@@ -171,6 +171,23 @@ TEST(DiffHeuristic, PartialObsOpponentTurnJumpsToTheWholeMap) {  // 01 §4.3
     EXPECT_DOUBLE_EQ(diff_heuristic(ref, s, 0), 121.0 - mine);
 }
 
+// Our agents' option (ADR-008 §7): the player's own grid in both states, so the opponent's turn
+// adds nothing and P's own new tiles still count.
+TEST(DiffHeuristic, PlayerVisionIgnoresWhoIsActive) {
+    using poly::search::DiffVision;
+    const GameState truth = two_tribes(poly::ObsMode::Partial);
+    const GameState ref = poly::observe(truth, 0).view();
+    GameState s = ref;
+    s.active_tribe = 1;                         // as after End Turn in the search tree
+    ASSERT_GT(diff_heuristic(ref, s, 0), 0.0);  // the quirk's jump
+    EXPECT_DOUBLE_EQ(diff_heuristic(ref, s, 0, DiffVision::Player), 0.0);
+    GameState more = ref;
+    tribe(more, 0).visible.set(static_cast<std::size_t>(more.index(10, 10)));
+    ASSERT_FALSE(ref.tribes[0].visible.test(static_cast<std::size_t>(ref.index(10, 10))));
+    more.active_tribe = 1;
+    EXPECT_DOUBLE_EQ(diff_heuristic(ref, more, 0, DiffVision::Player), 1.0);
+}
+
 TEST(DiffHeuristic, FullObsVisionTermIsZero) {  // 01 §4.3
     const GameState ref = poly::observe(two_tribes(), 0).view();
     GameState s = ref;

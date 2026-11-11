@@ -3,7 +3,8 @@
 // game, appended as games finish; rerunning the same command skips the games already in the CSV
 // (§7). The summary (W/D/L, Wilson intervals) is tools/tournament_summary.py.
 //
-// Usage: tournament --levels=<dir> --agents=Random,RuleBased,OSLA,MC,MCTS,RHEA,PUCT --reps=<R>
+// Usage: tournament --levels=<dir> --agents=Random,RuleBased,OSLA,MC,MCTS,RHEA,PUCT[:k=v:..]
+// --reps=<R>
 // --out=<csv>
 //                   [--id=<tournament id>] [--obs=full|partial] [--jobs=<N>]
 
@@ -70,8 +71,11 @@ std::unique_ptr<poly::search::Agent> make_agent(const std::string& name, std::ui
     if (name == "RHEA") {
         return std::make_unique<poly::search::RheaAgent>(seed);
     }
-    if (name == "PUCT") {  // ours, ADR-008
-        return std::make_unique<poly::search::PuctAgent>(seed);
+    if (name == "PUCT" || name.starts_with("PUCT:")) {  // ours, ADR-008; e.g. PUCT:c=1.5:vision=own
+        const std::string_view spec =
+            name.size() > 5 ? std::string_view(name).substr(5) : std::string_view{};
+        return std::make_unique<poly::search::PuctAgent>(seed,
+                                                         poly::search::parse_puct_params(spec));
     }
     throw std::runtime_error("unknown agent: " + name);
 }

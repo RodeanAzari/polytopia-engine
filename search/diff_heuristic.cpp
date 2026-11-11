@@ -33,13 +33,14 @@ double tribe_delta(const GameState& ref, const GameState& later, int t) {
            (0.1 * (later.tribes[i].score - ref.tribes[i].score));
 }
 
-int active_visible_tiles(const GameState& s) {  // quirk: the active tribe's grid, not P's
-    return static_cast<int>(s.tribes[static_cast<std::size_t>(s.active_tribe)].visible.count());
+int visible_tiles(const GameState& s, int player, DiffVision vision) {
+    const int t = vision == DiffVision::ActiveTribe ? s.active_tribe : player;  // quirk: active's
+    return static_cast<int>(s.tribes[static_cast<std::size_t>(t)].visible.count());
 }
 
 }  // namespace
 
-double diff_heuristic(const GameState& ref, const GameState& later, int player) {
+double diff_heuristic(const GameState& ref, const GameState& later, int player, DiffVision vision) {
     double own = 0.0;
     double others = 0.0;
     for (int t = 0; t < ref.num_tribes; ++t) {
@@ -50,8 +51,8 @@ double diff_heuristic(const GameState& ref, const GameState& later, int player) 
     const auto& p_later = later.tribes[static_cast<std::size_t>(player)];
     const int connected =
         static_cast<int>(p_later.connected.size()) - static_cast<int>(p_ref.connected.size());
-    const int vision = active_visible_tiles(later) - active_visible_tiles(ref);
-    return own - (others / (ref.num_tribes - 1)) + connected + vision;
+    const int seen = visible_tiles(later, player, vision) - visible_tiles(ref, player, vision);
+    return own - (others / (ref.num_tribes - 1)) + connected + seen;
 }
 
 }  // namespace poly::search

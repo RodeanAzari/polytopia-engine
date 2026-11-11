@@ -9,6 +9,7 @@
 #include <cmath>
 #include <numeric>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #include "poly/level.hpp"
 #include "poly/observation.hpp"
 #include "poly/rules.hpp"
+#include "search/diff_heuristic.hpp"
 #include "search/puct.hpp"
 #include "search/rule_based.hpp"
 
@@ -26,12 +28,13 @@ using poly::ActionType;
 using poly::GameState;
 using poly::search::PuctAgent;
 
-GameState two_tribes() {  // 11 x 11 plains (no ruins: no chance draws), tribe 0 to move, full obs
+// 11 x 11 plains (no ruins: no chance draws), tribe 0 to move, full obs by default.
+GameState two_tribes(poly::ObsMode mode = poly::ObsMode::Full) {
     std::vector<std::string> lines(11, ".,.,.,.,.,.,.,.,.,.,.");
     lines[2] = ".,.,c:0,.,.,.,.,.,.,.,.";
     lines[8] = ".,.,.,.,.,.,.,.,c:2,.,.";
     poly::SampledChance chance(1);
-    GameState s = poly::load_level(lines, poly::GameMode::Capitals, poly::ObsMode::Full, chance);
+    GameState s = poly::load_level(lines, poly::GameMode::Capitals, mode, chance);
     poly::start_turn(s, 0);
     return s;
 }
@@ -104,6 +107,36 @@ double sum_of(std::span<const poly::search::PuctEdge> edges,
     return std::accumulate(
         edges.begin(), edges.end(), 0.0,
         [field](double s, const poly::search::PuctEdge& e) { return s + e.*field; });
+}
+
+bool rejects(const char* spec) {
+    try {
+        (void)poly::search::parse_puct_params(spec);
+    } catch (const std::invalid_argument&) {
+        return true;
+    }
+    return false;
+}
+
+TEST(PuctParams, ParsesTheRunnerSpec) {  // A/B variants (ADR-007 §5)
+    using poly::search::DiffVision;
+    using poly::search::parse_puct_params;
+    const auto d = parse_puct_params("");
+    EXPECT_DOUBLE_EQ(d.c, 1.25);  // ADR-008 start values
+    EXPECT_DOUBLE_EQ(d.temperature, 1.0);
+    EXPECT_EQ(d.vision, DiffVision::ActiveTribe);
+    const auto p = parse_puct_params("c=2.5:T=0.5:vision=own");
+    EXPECT_DOUBLE_EQ(p.c, 2.5);
+    EXPECT_DOUBLE_EQ(p.temperature, 0.5);
+    EXPECT_EQ(p.vision, DiffVision::Player);
+    EXPECT_EQ(parse_puct_params("vision=active").vision, DiffVision::ActiveTribe);
+}
+
+TEST(PuctParams, RejectsBadSpecs) {
+    for (const char* bad :
+         {"c", "c=", "c=x", "c=0", "c=-1", "T=1.5x", "T=inf", "vision=mine", "k=1", "c=1,T=2"}) {
+        EXPECT_TRUE(rejects(bad)) << bad;
+    }
 }
 
 // Tree bookkeeping every search must satisfy (ADR-008 §4/§5).
@@ -279,6 +312,32 @@ TEST(Puct, FinishedGamesRankBeyondEveryOtherValue) {  // ADR-008 §4
     EXPECT_LE(agent.last_fm_calls(), PuctAgent::kBudget);
     EXPECT_EQ(agent.nodes()[0].visits, 1 + PuctAgent::kMaxIterations);
     check_tree(agent);
+}
+
+TEST(Puct, LeafValueUsesTheConfiguredVision) {  // ADR-008 §4/§7, under fog where it matters
+    using poly::search::DiffVision;
+    // Flat priors so the tree reaches End Turn and the opponent's turn, where the two differ.
+    const GameState s = two_tribes(poly::ObsMode::Partial);
+    const auto obs = poly::observe(s, 0);
+    const auto l = legal(obs.view());
+    for (const DiffVision v : {DiffVision::ActiveTribe, DiffVision::Player}) {
+        PuctAgent agent(1, {.temperature = 1000.0, .vision = v});
+        agent.act(obs, l);
+        int differ = 0;  // nodes where the two visions disagree: the setting is exercised
+        for (std::size_t i = 0; i < agent.nodes().size(); ++i) {
+            if (agent.nodes()[i].terminal) {
+                continue;
+            }
+            const GameState& st = agent.state(i);
+            EXPECT_DOUBLE_EQ(agent.nodes()[i].value,
+                             poly::search::diff_heuristic(obs.view(), st, 0, v));
+            differ += poly::search::diff_heuristic(obs.view(), st, 0, DiffVision::ActiveTribe) !=
+                              poly::search::diff_heuristic(obs.view(), st, 0, DiffVision::Player)
+                          ? 1
+                          : 0;
+        }
+        EXPECT_GT(differ, 0);
+    }
 }
 
 TEST(Puct, SameSeedSameDecision) {  // CLAUDE.md §5

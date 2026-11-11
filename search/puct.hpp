@@ -8,12 +8,14 @@
 
 #include <cstdint>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #include "poly/chance.hpp"
 #include "poly/rng.hpp"
 #include "poly/rules.hpp"
 #include "search/agent.hpp"
+#include "search/diff_heuristic.hpp"
 
 namespace poly::search {
 
@@ -37,9 +39,16 @@ struct PuctNode {
 };
 
 struct PuctParams {
-    double c = 1.25;           // ADR-008 §2 start value
-    double temperature = 1.0;  // ADR-008 §3 start value
+    double c = 1.25;                              // ADR-008 §2 start value
+    double temperature = 1.0;                     // ADR-008 §3 start value
+    DiffVision vision = DiffVision::ActiveTribe;  // ADR-008 §4 start: Tribes' Diff as is
 };
+
+// Agent variants for A/B runs (ADR-007 §5), as the tournament runner names them after "PUCT:": ""
+// (the defaults) or key=value items separated by ':' (agent lists and CSV fields use ','):
+// c=<double>, T=<double>, vision=active|own. Throws on anything else (unknown key, bad value, c
+// or T not positive).
+PuctParams parse_puct_params(std::string_view spec);
 
 // ADR-008 §3: p_i = exp((s_i − max s)/T) / Σ exp((s_j − max s)/T). `out` gets one prior per score.
 void softmax_priors(std::span<const int> scores, double temperature, std::vector<double>& out);
