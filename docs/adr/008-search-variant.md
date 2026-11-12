@@ -60,6 +60,10 @@ forward-model calls (ADR-007 §4: 2,000 per decision). Facts from Phase 2:
    - SPRT 7 `T0.25` (2026-11-12, git 9173136): T = 0.25 vs. 0.5. **H1 accepted** after 300 pairs, pentanomial
      [35, 0, 200, 0, 65], LLR 3.73, Elo +34.9 (95% +12.4 to +57.6). Adopted: T = 0.25 is the default;
      SPRT 8 tries T = 0.125.
+   - SPRT 8 `T0.125` (2026-11-12, git d83843f; killed once by memory pressure, resumed): T = 0.125 vs. 0.25.
+     **H1 accepted** after 400 pairs, pentanomial [40, 0, 295, 0, 65], LLR 2.99, Elo +21.7 (95% +4.4 to
+     +39.2). Adopted: T = 0.125 is the default. Further halving is not tried: one score point is already
+     e^8 ≈ 3,000× in prior, so lower T barely changes the priors. SPRT 9 re-tests c = 2.5 at the sharp priors.
 
 ## Rejected alternatives
 - **Gumbel (sequential halving at the root) from the start:** designed for 16–200 simulations; at 2,000 the gain
