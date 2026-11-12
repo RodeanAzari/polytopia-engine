@@ -6,6 +6,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - run: sudo apt-get update && sudo apt-get install -y ninja-build clang-tidy
+      - run: python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt  # make test runs pytest
       - run: make ci
 
   # Short replay difftest against Tribes (ADR-002 amendment 2026-11-06): Tribes is cloned at the
