@@ -127,12 +127,12 @@ TEST(PuctParams, ParsesTheRunnerSpec) {  // A/B variants (ADR-007 §5)
     using poly::search::DiffVision;
     using poly::search::parse_puct_params;
     const auto d = parse_puct_params("");
-    EXPECT_DOUBLE_EQ(d.c, 1.25);  // ADR-008 start values
-    EXPECT_DOUBLE_EQ(d.temperature, 1.0);
+    EXPECT_DOUBLE_EQ(d.c, 1.25);              // ADR-008 start value; c=2.5 rejected by SPRT 4
+    EXPECT_DOUBLE_EQ(d.temperature, 0.5);     // ADR-008 §8: adopted by SPRT 6
     EXPECT_EQ(d.vision, DiffVision::Player);  // ADR-008 §8: adopted by SPRT 1
-    const auto p = parse_puct_params("c=2.5:T=0.5:vision=own");
+    const auto p = parse_puct_params("c=2.5:T=2:vision=own");
     EXPECT_DOUBLE_EQ(p.c, 2.5);
-    EXPECT_DOUBLE_EQ(p.temperature, 0.5);
+    EXPECT_DOUBLE_EQ(p.temperature, 2.0);
     EXPECT_EQ(p.vision, DiffVision::Player);
     EXPECT_EQ(parse_puct_params("vision=active").vision, DiffVision::ActiveTribe);
     EXPECT_EQ(d.determinizations, 4);  // ADR-008 §8: adopted by SPRT 2
@@ -241,7 +241,7 @@ TEST(Puct, PriorsComeFromThePlayerToMove) {  // ADR-008 §3
     }
     ASSERT_NE(scores, wrong);  // the test can tell the two apart
     std::vector<double> expected;
-    poly::search::softmax_priors(scores, 1.0, expected);
+    poly::search::softmax_priors(scores, kOneTree.temperature, expected);  // the agent's T
     PuctAgent agent(1, kOneTree);
     agent.act(obs0, l);
     const auto root_edges = agent.edges(agent.nodes()[0]);

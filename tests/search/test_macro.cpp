@@ -367,7 +367,7 @@ bool expect_node_reduced(const poly::search::PuctAgent& agent, std::size_t i) {
     const auto got = agent.actions(n);
     EXPECT_EQ(std::vector<Action>(got.begin(), got.end()), r.actions) << "node " << i;
     std::vector<double> priors;
-    poly::search::softmax_priors(r.kept_scores, 1.0, priors);
+    poly::search::softmax_priors(r.kept_scores, poly::search::PuctParams{}.temperature, priors);
     const auto edges = agent.edges(n);
     EXPECT_EQ(edges.size(), priors.size()) << "node " << i;
     for (std::size_t j = 0; j < std::min(edges.size(), priors.size()); ++j) {
@@ -393,7 +393,7 @@ void expect_root(const poly::search::PuctAgent& agent, const Reduced& root) {
     const auto ra = agent.root_actions();
     EXPECT_EQ(std::vector<Action>(ra.begin(), ra.end()), root.actions);
     std::vector<double> priors;
-    poly::search::softmax_priors(root.kept_scores, 1.0, priors);
+    poly::search::softmax_priors(root.kept_scores, poly::search::PuctParams{}.temperature, priors);
     const auto re = agent.edges(agent.nodes()[0]);
     ASSERT_EQ(re.size(), priors.size());
     for (std::size_t i = 0; i < re.size(); ++i) {

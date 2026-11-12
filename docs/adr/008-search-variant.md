@@ -54,6 +54,9 @@ forward-model calls (ADR-007 §4: 2,000 per decision). Facts from Phase 2:
    - SPRT 5 `T2` (2026-11-12, git 693ec0d): prior temperature T = 2 vs. 1. **H0 accepted** after 300 pairs,
      pentanomial [71, 0, 192, 0, 37], LLR −6.68, Elo −39.5 (95% −63.2 to −16.2): flatter priors are worse.
      Kept T = 1; SPRT 6 tries T = 0.5.
+   - SPRT 6 `T0.5` (2026-11-12, git d6e1073): T = 0.5 vs. 1. **H1 accepted** after 400 pairs, pentanomial
+     [52, 0, 260, 0, 88], LLR 4.06, Elo +31.4 (95% +11.4 to +51.6). Adopted: T = 0.5 is the default. The
+     Phase 3 headline (engine d787779) was measured at T = 1.
 
 ## Rejected alternatives
 - **Gumbel (sequential halving at the root) from the start:** designed for 16–200 simulations; at 2,000 the gain
