@@ -28,7 +28,7 @@ ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits).
 6. ~~Headline~~ done (git 93a2734, engine d787779; 200 games/cell, 16 cells): PUCT's 95% lower bound > 50% vs.
    all 6 baselines in Paper and Fog (vs. RHEA 77.5%, 71.2–82.7, Paper). Table: notebook 2026-11-11.
    Media confirmed by the user and published: docs/media/2026-11-11-{p3-headline.png,hero-puct-vs-rhea.gif}
-   (+ sidecars), README. Next: c/T tuning SPRTs (step 4).
+   (+ sidecars), README. Running: SPRT 4 `c2.5` (log data/results/sprt-c2.5.log; rerun to resume; no rebuild meanwhile); then T=2.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
