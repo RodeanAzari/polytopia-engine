@@ -128,7 +128,7 @@ TEST(PuctParams, ParsesTheRunnerSpec) {  // A/B variants (ADR-007 §5)
     using poly::search::parse_puct_params;
     const auto d = parse_puct_params("");
     EXPECT_DOUBLE_EQ(d.c, 1.25);              // ADR-008 start value; c=2.5 rejected by SPRT 4
-    EXPECT_DOUBLE_EQ(d.temperature, 0.5);     // ADR-008 §8: adopted by SPRT 6
+    EXPECT_DOUBLE_EQ(d.temperature, 0.25);    // ADR-008 §8: SPRT 6 (0.5), SPRT 7 (0.25)
     EXPECT_EQ(d.vision, DiffVision::Player);  // ADR-008 §8: adopted by SPRT 1
     const auto p = parse_puct_params("c=2.5:T=2:vision=own");
     EXPECT_DOUBLE_EQ(p.c, 2.5);

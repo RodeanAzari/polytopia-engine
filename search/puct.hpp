@@ -45,7 +45,7 @@ struct PuctNode {
 
 struct PuctParams {
     double c = 1.25;                         // ADR-008 §2 start value
-    double temperature = 0.5;                // ADR-008 §3 (start 1); 0.5 by SPRT 6, ADR-008 §8
+    double temperature = 0.25;               // ADR-008 §3 (start 1); 0.25 by SPRT 7, ADR-008 §8
     DiffVision vision = DiffVision::Player;  // ADR-008 §8: SPRT 1 (own vision beat Tribes' Diff)
     int determinizations = 4;  // ADR-009 K (0 = the observation); 4 by SPRT 2, ADR-008 §8
     bool macro = true;  // ADR-010 (goal-directed moves, pruned actions); by SPRT 3, ADR-008 §8
