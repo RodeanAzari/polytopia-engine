@@ -27,8 +27,8 @@ ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits).
 5. ~~Macro-actions~~ done (d4ae3c5); SPRT 3 H1, Elo +47.2 (+19.8 to +75.2): default since d787779.
 6. ~~Headline~~ done (git 93a2734, engine d787779; 200 games/cell, 16 cells): PUCT's 95% lower bound > 50% vs.
    all 6 baselines in Paper and Fog (vs. RHEA 77.5%, 71.2–82.7, Paper). Table: notebook 2026-11-11.
-   Captures (chart, hero GIF candidate, macro vs. flat) listed in docs/portfolio-todo.md: **awaiting the
-   user's confirmation** before docs/media + README. Then c/T tuning SPRTs (step 4).
+   Media confirmed by the user and published: docs/media/2026-11-11-{p3-headline.png,hero-puct-vs-rhea.gif}
+   (+ sidecars), README. Next: c/T tuning SPRTs (step 4).
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded

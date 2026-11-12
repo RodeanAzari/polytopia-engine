@@ -9,13 +9,16 @@ search, and a policy/value network trained by self-play.
 written from a facts-only rule sheet, then checked by replaying games logged from
 [Tribes](https://github.com/GAIGResearch/Tribes), the research framework's Java forward model, action by
 action, with and without fog of war. In **2,200 whole games, every one of 4,549,364 game states and every one of
-4,159,721 legal-action sets matches the oracle exactly**, covering every action type Tribes has, and so does what each agent is allowed to see under fog. Search and learning come next; until they
-exist, every row below that needs them is a dash.
+4,159,721 legal-action sets matches the oracle exactly**, covering every action type Tribes has, and so does what each agent is allowed to see under fog. **Phase 3's search agent now beats every baseline**, RHEA included,
+with and without fog (below). Learning comes next; until it exists, every row below that needs it is a dash.
 
 Every number here links to the lab notebook or decision record where it was measured, with the command that
 reproduces it. Dashes mean not measured yet.
 
-*Hero GIF (the agent beating RHEA, search visit counts on the map): Phase 3.*
+![Our PUCT agent (Xin Xi) beating RHEA by conquest in 16 turns; arrows show the share of search visits per action](docs/media/2026-11-11-hero-puct-vs-rhea.gif)
+
+*Our PUCT agent beating RHEA by conquest in 16 turns; arrows and the side panel show where the search spent its
+visits at each decision ([game and how it was recorded](docs/media/2026-11-11-hero-puct-vs-rhea.md)).*
 
 ## At a glance
 
@@ -25,12 +28,12 @@ reproduces it. Dashes mean not measured yet.
 | **Differential test** | Zero mismatches, in both observability modes ([2026-11-06](docs/notebook/2026-11-06.md), [2026-11-07](docs/notebook/2026-11-07.md)). **Map load: 700/700** initial states each with and without fog (2–8 players, all 12 tribes, both game modes). **Full observability:** 1,000/1,000 games (2,173,391 states, 1,992,166 legal-action sets) and 100/100 Mind Bender scenario games (71,560 / 59,253). **Fog of war:** 1,000/1,000 games (2,232,082 / 2,048,235; the first 140 included 800 random tech draws on meeting a tribe) and 100/100 Mind Bender games (72,331 / 60,067) |
 | **Simulator speed vs. Tribes** | **5.3–6.3× faster** than Tribes' Java forward model on random playouts of the same levels (median of 3 runs per config, per-run range 4.4–7.2×): 81k–141k vs. 18k–24k decisions/s, one thread, 2–8 players ([chart and method](docs/media/2026-11-08-sim-speed.md); i9-11950H, WSL2) |
 | **State** | One trivially copyable value type, **32.7 KB**, ~1.1 µs per copy (i9-11950H, WSL2, g++ 15 -O3; [ADR-005](docs/adr/005-state-encoding.md)) |
-| **Search method** | — (action-level MCTS with macro-actions, Phase 3) |
-| **Win rate vs. RHEA** | — |
-| **Win rate vs. all Tribes agents** | — |
+| **Search method** | Action-level PUCT, Rule Based softmax priors, 2,000 forward-model calls per decision ([ADR-008](docs/adr/008-search-variant.md)); K=4 determinizations of hidden opponent state ([ADR-009](docs/adr/009-hidden-information.md)); macro-action pruning of each node's actions ([ADR-010](docs/adr/010-macro-actions.md)). Each change accepted by SPRT |
+| **Win rate vs. RHEA** | **77.5%** (200 games; 95% CI 71.2–82.7%) with full observability, **91.0%** (86.2–94.2%) under fog; 100 held-out test levels ([table](docs/media/2026-11-11-p3-headline.md)) |
+| **Win rate vs. all Tribes agents** | Above 50% against every one, each 95% lower bound included, in both conditions: 65.5–100% (full obs), 67.5–100% (fog), 200 games each; hardest is Rule Based. Opponents are our reimplementations, which reproduce Tribes' agents' results ([table](docs/media/2026-11-11-p3-headline.md)) |
 | **Network and training compute** | — (Phase 4) |
 | **Human results** | — (Phase 5) |
-| **Tests** | 50 GoogleTest unit tests, Release and Debug with ASan/UBSan; every difftest also run under the sanitizers on a subset |
+| **Tests** | 161 GoogleTest tests, Release and Debug with ASan/UBSan; every difftest also run under the sanitizers on a subset |
 | **CI** | Build, unit tests, clang-tidy and sanitizers; a short replay difftest against Tribes, with and without fog, on every push |
 
 ## Status
@@ -39,7 +42,7 @@ reproduces it. Dashes mean not measured yet.
 |---|---|
 | 1 — Simulator | **Done** (2026-11-08): rule-facts sheet; map load, every action type and legal-action generation bit-exact, with and without fog; the agent's fog-filtered observation matches Tribes' at every decision; 5–6× Tribes' speed; replay viewer; action encoding for search and the policy head ([ADR-006](docs/adr/006-action-encoding.md)) |
 | 2 — Search baselines | **Done** (2026-11-10): Tribes' five baselines reimplemented (Rule Based, OSLA, MC, MCTS, RHEA); on 7,500 games they reproduce Tribes' own agents' results pair by pair ([ADR-007](docs/adr/007-evaluation-protocol.md) §6, [table](docs/media/2026-11-10-baseline-round-robin.md)) |
-| 3 — Action-level MCTS + heuristic priors | **In progress** |
+| 3 — Action-level MCTS + heuristic priors | **In progress**: the agent beats every baseline incl. RHEA, with and without fog (2026-11-11, [table](docs/media/2026-11-11-p3-headline.md)); parameter tuning next |
 | 4 — Learned policy/value network | Not started (needs GPU time) |
 | 5 — Evaluation | Not started |
 | 6 — Real game, private matches with consenting humans ([ADR-003](docs/adr/003-real-game-phase.md)) | Not started |
@@ -129,6 +132,14 @@ our simulator, next to Tribes' own agents (50 games per pair), paper condition. 
 Tribes', no pair Tribes resolves is reversed, and every agent beats Random (lower bound ≥ 98.3%). Ordering:
 Rule Based > RHEA > MCTS ≈ OSLA > MC > Random, as in Tribes at the pinned commit, not as in the paper.
 [Full table, provenance and caveats](docs/media/2026-11-10-baseline-round-robin.md).
+
+**Action-level search (Phase 3):** our PUCT agent against every baseline, 200 games per cell (100 held-out test
+levels, both seatings), with full observability (Paper) and fog (Fog). Every interval clears 50%. The flat
+variant (orange, no macro-actions) is shown against the two strongest baselines; its intervals overlap the
+default's, and the head-to-head SPRT is what shows macro-actions help (Elo +47.2, 95% +19.8 to +75.2).
+[Full table, provenance and caveats](docs/media/2026-11-11-p3-headline.md).
+
+![PUCT's win rate against each baseline with Wilson 95% intervals, full observability and fog](docs/media/2026-11-11-p3-headline.png)
 
 ![Per-pair win rates with Wilson 95% intervals, our agents vs. Tribes' agents](docs/media/2026-11-10-baseline-round-robin.png)
 
