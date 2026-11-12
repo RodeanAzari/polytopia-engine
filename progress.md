@@ -25,10 +25,10 @@ ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits).
    SPRT 2 `det-k4`: H1 after 500 pairs, Elo +25.8 (+7.8 to +43.8); K=4 is the default (dd50860).
 4. Tune c, T, K, leaf form (SPRT, dev, Fog condition).
 5. ~~Macro-actions~~ done (d4ae3c5); SPRT 3 H1, Elo +47.2 (+19.8 to +75.2): default since d787779.
-6. **Running: headline** `tools/headline.sh 8` (git 93a2734, engine d787779; log data/results/p3-headline.log;
-   rerun to resume; don't rebuild build/release meanwhile). User: 200 games/cell, Paper + Fog, PUCT vs. all 6
-   baselines + `PUCT:macro=0` vs. RB/RHEA; c/T tuning after. Then: table + plot, hero GIF (`make replay-game`
-   from a win over RHEA in the CSV, `tools/replay_gif.py`), docs/portfolio-todo.md, wait for confirmation.
+6. ~~Headline~~ done (git 93a2734, engine d787779; 200 games/cell, 16 cells): PUCT's 95% lower bound > 50% vs.
+   all 6 baselines in Paper and Fog (vs. RHEA 77.5%, 71.2–82.7, Paper). Table: notebook 2026-11-11.
+   Captures (chart, hero GIF candidate, macro vs. flat) listed in docs/portfolio-todo.md: **awaiting the
+   user's confirmation** before docs/media + README. Then c/T tuning SPRTs (step 4).
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
