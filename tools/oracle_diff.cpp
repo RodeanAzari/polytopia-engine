@@ -399,8 +399,9 @@ class Replay {
     void probe_start() {
         probe_observer_ = s_.active_tribe;
         probe_ = poly::observe(s_, probe_observer_).view();
-        poly::legal_actions(s_, legal_);  // the copy's cached list: the environment's legal set
-        probe_legal_.assign(legal_.begin(), legal_.end());
+        // The copy's cached list: the environment's legal set.
+        poly::legal_actions(s_, probe_scratch_);
+        probe_legal_.assign(probe_scratch_.begin(), probe_scratch_.end());
         probe_draws_.clear();
         probe_step_ = 0;
     }
@@ -422,8 +423,9 @@ class Replay {
         ReplayChance chance(std::move(probe_draws_));
         probe_draws_.clear();
         if (poly::agent_advance(probe_, probe_action_, chance)) {
-            poly::legal_actions(probe_, legal_);  // else Tribes keeps its stale list (04 §9)
-            probe_legal_.assign(legal_.begin(), legal_.end());
+            // Else Tribes keeps its stale list (04 §9).
+            poly::legal_actions(probe_, probe_scratch_);
+            probe_legal_.assign(probe_scratch_.begin(), probe_scratch_.end());
         }
         const std::string where =
             "probe step " + std::to_string(probe_step_) + " after " + probe_text_ + ", " + event_;
@@ -698,7 +700,8 @@ class Replay {
     std::string probe_text_;
     std::vector<Draw> probe_draws_;
     std::vector<poly::Action> probe_legal_;  // the copy's current (possibly stale) legal list
-    poly::ActionList legal_;
+    poly::ActionList legal_;  // the game's legal set (check_rule_based reads it after probes)
+    poly::ActionList probe_scratch_;  // probes' own buffer: they must not overwrite legal_
     enum class Pending : std::uint8_t { Load, TurnStart, Action, TurnEnd, None };
     Pending pending_ = Pending::Load;
     poly::Action action_;
