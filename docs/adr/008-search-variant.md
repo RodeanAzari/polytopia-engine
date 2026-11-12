@@ -51,6 +51,9 @@ forward-model calls (ADR-007 §4: 2,000 per decision). Facts from Phase 2:
      unchanged): c = 2.5 vs. 1.25. **H0 accepted** after 1,200 pairs, pentanomial [165, 0, 856, 0, 179], LLR
      −4.09 (bound −2.94), Elo +4.1 (95% −6.5 to +14.6). Kept c = 1.25. c = 0.6 not tried: the estimate's sign
      points the other way and the H1 bar is +20.
+   - SPRT 5 `T2` (2026-11-12, git 693ec0d): prior temperature T = 2 vs. 1. **H0 accepted** after 300 pairs,
+     pentanomial [71, 0, 192, 0, 37], LLR −6.68, Elo −39.5 (95% −63.2 to −16.2): flatter priors are worse.
+     Kept T = 1; SPRT 6 tries T = 0.5.
 
 ## Rejected alternatives
 - **Gumbel (sequential halving at the root) from the start:** designed for 16–200 simulations; at 2,000 the gain
