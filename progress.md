@@ -24,8 +24,9 @@ Done: ADR-011 (network; amended: compact features expanded in-model) + ADR-012 (
 `encode_features` + `network_index`; records (`selfplay/`, `tools/selfplay`, `nn/records.py`); `nn/model.py`,
 `pack.py`, `train.py`; `make selfplay RUN= GAMES=` / `make train RUN= STEPS=`; train seeds `data/seeds/train.txt`.
 Running: bootstrap records, `make selfplay GAMES=2000 JOBS=8` (started 2026-11-13 16:23, ~300 games/h;
-resumable: rerun the same command). Next: train on it (`make train RUN=bootstrap`), compare with RB priors;
-then LibTorch in C++ (ADR-012 §1) and games/h with the net in the loop.
+resumable: rerun the same command). C++ inference done (`make setup-nn build-nn`; `selfplay --net=<.ts>`;
+`nn/export.py`; parity test). Next: (1) batcher speed (7.2k evals/s, batcher-bound; notebook), re-measure
+once the recording is done; (2) train on bootstrap (`make train RUN=bootstrap`), compare with RB priors.
 Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning. Untried: leaf value form, tree reuse, Gumbel.
 Trap: Claude Code kills idle background runs under system memory pressure (4× on 2026-11-12/13; other
 sessions); all runners resume, so just rerun (or start Claude Code with CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1).
