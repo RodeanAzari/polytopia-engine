@@ -23,7 +23,7 @@ ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits).
    `tools/sprt_run.sh`; variants are `PUCT:c=..:T=..:vision=..:K=..` (785f484).
 3. ~~Determinization~~ done (4cade7b, `PUCT:K=n`).
    SPRT 2 `det-k4`: H1 after 500 pairs, Elo +25.8 (+7.8 to +43.8); K=4 is the default (dd50860).
-4. Tune c, T, K, leaf form (SPRT, dev, Fog condition).
+4. ~~Tune c, T~~ done (SPRTs 4–9, ADR-008 §8): c 1.25, T 0.125. Leaf form, tree reuse, Gumbel: untried.
 5. ~~Macro-actions~~ done (d4ae3c5); SPRT 3 H1, Elo +47.2 (+19.8 to +75.2): default since d787779.
 6. ~~Headline~~ done (git 93a2734, engine d787779; 200 games/cell, 16 cells): PUCT's 95% lower bound > 50% vs.
    all 6 baselines in Paper and Fog (vs. RHEA 77.5%, 71.2–82.7, Paper). Table: notebook 2026-11-11.
