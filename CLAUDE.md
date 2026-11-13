@@ -1,5 +1,3 @@
-Project ID: P8
-@~/fpga-coord/PROTOCOL.md
 
 # CLAUDE.md — Project 8: Polytopia Engine
 
@@ -23,7 +21,6 @@ Full spec, prior art, phase checklists, out-of-scope list and portfolio delivera
 
 ## Rules for Claude
 
-- **Follow the imported fpga-coord protocol** at the start and end of every session (this project has one gate: GPU access).
 - **Never invent a number.** Win rates always come with game counts and confidence intervals; unmeasured = `[TBD]`.
 - **The simulator is the golden model.** No search or training work on rules that haven't passed the differential test against Tribes.
 - **No peeking through the fog.** The agent only ever sees its observation; any hidden-information leak in search or training invalidates results.

@@ -14,7 +14,7 @@ if(POLY_SANITIZE)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
-add_library(poly_sim STATIC sim/src/state.cpp sim/src/level.cpp sim/src/dump.cpp sim/src/rules.cpp sim/src/move.cpp sim/src/network.cpp sim/src/observation.cpp sim/src/action_encoding.cpp)
+add_library(poly_sim STATIC sim/src/state.cpp sim/src/level.cpp sim/src/dump.cpp sim/src/rules.cpp sim/src/move.cpp sim/src/network.cpp sim/src/observation.cpp sim/src/action_encoding.cpp sim/src/features.cpp)
 target_include_directories(poly_sim PUBLIC sim/include)
 
 add_library(poly_search STATIC search/determinize.cpp search/diff_heuristic.cpp search/macro.cpp search/match.cpp search/mc.cpp search/mcts.cpp search/osla.cpp search/puct.cpp search/rhea.cpp search/root_groups.cpp search/rule_based.cpp)
@@ -41,7 +41,7 @@ FetchContent_Declare(googletest
 FetchContent_MakeAvailable(googletest)
 
 enable_testing()
-add_executable(sim_tests tests/sim/test_rng.cpp tests/sim/test_inline_vector.cpp tests/sim/test_level.cpp tests/sim/test_actions.cpp tests/sim/test_fog.cpp tests/sim/test_action_encoding.cpp tests/sim/test_agent_advance.cpp)
+add_executable(sim_tests tests/sim/test_rng.cpp tests/sim/test_inline_vector.cpp tests/sim/test_level.cpp tests/sim/test_actions.cpp tests/sim/test_fog.cpp tests/sim/test_action_encoding.cpp tests/sim/test_agent_advance.cpp tests/sim/test_features.cpp)
 target_link_libraries(sim_tests PRIVATE poly_sim GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(sim_tests)

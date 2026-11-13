@@ -1,6 +1,6 @@
 # ADR-011: Network inputs, architecture and training targets
 
-- **Status:** Proposed (2026-11-13)
+- **Status:** Accepted (2026-11-13, by the user)
 - **Date:** 2026-11-13
 
 ## Context
@@ -64,6 +64,38 @@ About 80 planes in all. The exact list is fixed by the implementation and its te
 
 **Scaling** constants are fixed and stated in code, not learned. Out-of-range values are clipped, and the
 clipping is counted in tests.
+
+**Amended at implementation (2026-11-13): compact features, expanded inside the network.**
+- **Why:** dense fp16 planes are ~24 KB per position at 11 × 11, ~19 MB per game (794 decisions), ~190 GB per
+  10,000 games.
+- **What C++ emits instead** (`encode_features(const Observation&)`, `sim/include/poly/features.hpp`):
+  - per tile: one class index for each of 9 categorical fields (terrain, resource, building, territory r,
+    city owner r, unit type, unit owner r, unit status, carried type; the last class of each = none);
+  - per tile: 5 flag bits (visible, trade network, capital, walls, veteran);
+  - per tile: 4 scalars (city level/10, own city population/need, border/3, unit hp/max hp);
+  - one 80-float global vector (the list above, plus `leveling_up` and n/8).
+- **Size:** ~2.5 KB per position.
+- **Inside the model:** the network one-hot-expands the classes (97 channels with the "none" classes, + 5 flags +
+  4 scalars = 106 tile channels). It adds the global vector through a linear layer, broadcast over the board,
+  rather than as 80 constant planes. So C++ inference and Python training share one expansion, the model's
+  own, and there's nothing to keep at parity.
+- **Scaling:** values are scaled, not clipped. Every scale has a natural bound except stars, score and tick,
+  which the network sees as plain magnitudes.
+- **Policy gather:** `network_index(policy, side)` maps ADR-006's 24-frame index onto the [332][side][side] +
+  130 output.
+- **Versioning:** `kFeaturesVersion` = 1.
+- **Tests:** `tests/sim/test_features.cpp`, 14 tests:
+  - hand-built tiles and global values from the field tables;
+  - perspective (each tribe sees itself as r = 0);
+  - fogged tiles show only fog;
+  - the gather is a bijection at sides 11/16/24 and fails loudly off the map;
+  - a property test over random games in both modes: scrambling every hidden tile and the opponent's private
+    values never changes the features, and every legal action lands on a distinct output;
+  - positive controls (visible changes do show).
+- **Bug injection:** 9 of 9 compilable injected bugs caught (no perspective relabel, absolute-tribe scores,
+  another tribe's vision, swapped x/y and the 24-frame in the gather, carried type on land units, territory on
+  fog, hp over a fixed max, the opponent's stars). One more, every city's population instead of own only, is
+  equivalent: observations already zero other tribes' populations (04 §7).
 
 ### 2. Trunk and heads
 - **Trunk:** a residual CNN at the map's own side (fully convolutional, so one set of weights runs on any side):

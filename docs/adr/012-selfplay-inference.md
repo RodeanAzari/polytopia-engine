@@ -1,6 +1,6 @@
 # ADR-012: Self-play, inference backend and training loop
 
-- **Status:** Proposed (2026-11-13)
+- **Status:** Accepted (2026-11-13, by the user)
 - **Date:** 2026-11-13
 
 ## Context
