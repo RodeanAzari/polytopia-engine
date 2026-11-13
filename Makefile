@@ -4,7 +4,12 @@ TRIBES_COMMIT := 270e7e564630e5ef3dcc04c96dd66f58ef7273f3
 GEN := $(shell command -v ninja >/dev/null 2>&1 && echo "-G Ninja")
 JOBS ?= $(shell nproc)
 
-.PHONY: replay-game setup oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender difftest-batched difftest-fm build test tidy format clean difftest bench replay tournament selfplay train plots plots-headline ci
+.PHONY: replay-game setup setup-nn oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender difftest-batched difftest-fm build test tidy format clean difftest bench replay tournament selfplay train plots plots-headline ci
+
+# Phase 4: PyTorch with CUDA into the same venv (needs an NVIDIA driver; not run by CI).
+setup-nn:
+	python3 -m venv .venv && .venv/bin/pip install -q -r requirements-nn.txt
+	.venv/bin/python -c "import torch; assert torch.cuda.is_available(), 'no CUDA'; print(torch.__version__, torch.cuda.get_device_name(0))"
 
 # Tribes is unlicensed: cloned locally at a pinned commit, never committed (ADR-002).
 setup:

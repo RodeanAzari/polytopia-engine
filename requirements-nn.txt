@@ -1,0 +1,6 @@
+# Phase 4 training (make setup-nn). Kept apart from requirements.txt so CI doesn't download CUDA wheels.
+# CUDA 13.0 build; verified on the RTX A2000 Laptop GPU (driver 596.52, WSL2), 2026-11-13.
+--index-url https://download.pytorch.org/whl/cu130
+--extra-index-url https://pypi.org/simple
+torch==2.14.0
+numpy==2.5.4

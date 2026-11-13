@@ -15,11 +15,14 @@ PUCT + Rule Based priors (ADR-008), K=4 determinization (ADR-009), macro mode (A
 95% lower bound > 50% vs. all 6 baselines, Paper + Fog; vs. RHEA 86.0% (80.5–90.1) Paper. Media
 `docs/media/2026-11-13-p3-headline-tuned.{png,md}`, hero GIF `2026-11-11-hero-puct-vs-rhea` (T=1 agent, kept
 by the user). Tools: `tools/sprt_run.sh`, `tools/headline.sh [jobs] [tag]`, `make plots-headline TAG=`,
-`make replay-game`, `tools/replay_gif.py`. Untried search ideas: leaf value form, tree reuse, Gumbel root.
+`make replay-game`, `tools/replay_gif.py`.
 
-## Next: Phase 4 — Learned policy/value network (NOT STARTED)
-**Hard MANUAL gate: GPU access**, and the GPU-time budget is decided with the user before starting (CLAUDE.md §1).
-Until then: CPU-only search/heuristic work. Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning.
+## Phase 4 — Learned policy/value network: IN PROGRESS (started 2026-11-13)
+GPU gate approved by the user 2026-11-13. Budget: local laptop only, 24 h pilot → ≤ 7 days → 14-day cap, no
+cloud (`docs/compute-plan.md`; the desktop RTX 3060 as a second worker is undecided). `make setup-nn` = CUDA torch.
+Stage 0 next: ADRs for network input planes + factored policy head, inference backend (C++ side), curriculum;
+then a self-play record format and a measured games/h with the network in the loop.
+Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning. Untried: leaf value form, tree reuse, Gumbel.
 Trap: Claude Code kills idle background runs under system memory pressure (4× on 2026-11-12/13; other
 sessions); all runners resume, so just rerun (or start Claude Code with CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1).
 
