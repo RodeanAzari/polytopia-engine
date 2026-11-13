@@ -16,6 +16,7 @@
 #include "poly/rules.hpp"
 #include "search/agent.hpp"
 #include "search/diff_heuristic.hpp"
+#include "search/leaf_eval.hpp"
 #include "search/macro.hpp"
 
 namespace poly::search {
@@ -49,12 +50,14 @@ struct PuctParams {
     DiffVision vision = DiffVision::Player;  // ADR-008 §8: SPRT 1 (own vision beat Tribes' Diff)
     int determinizations = 4;  // ADR-009 K (0 = the observation); 4 by SPRT 2, ADR-008 §8
     bool macro = true;  // ADR-010 (goal-directed moves, pruned actions); by SPRT 3, ADR-008 §8
+    int budget =
+        2000;  // forward-model calls per decision: ADR-007 §4; self-play may use fewer (ADR-012)
 };
 
 // Agent variants for A/B runs (ADR-007 §5), as the tournament runner names them after "PUCT:": ""
 // (the defaults) or key=value items separated by ':' (agent lists and CSV fields use ','):
-// c=<double>, T=<double>, vision=active|own, K=0..8, macro=0|1. Throws on anything else (unknown
-// key, bad value, c or T not positive).
+// c=<double>, T=<double>, vision=active|own, K=0..8, macro=0|1, budget=<int>. Throws on anything
+// else (unknown key, bad value, c, T or budget not positive).
 PuctParams parse_puct_params(std::string_view spec);
 
 // ADR-008 §3: p_i = exp((s_i − max s)/T) / Σ exp((s_j − max s)/T). `out` gets one prior per score.
@@ -78,11 +81,13 @@ std::size_t most_visited(std::span<const PuctEdge> edges);
 
 class PuctAgent final : public Agent {
    public:
-    static constexpr int kBudget = 2000;  // ADR-007 §4: forward-model calls per decision
+    static constexpr int kBudget = 2000;  // the default budget (PuctParams::budget, ADR-007 §4)
     static constexpr int kMaxNodes = kBudget + 1;
     static constexpr int kMaxIterations = 10 * kBudget;  // see search()
 
-    explicit PuctAgent(std::uint64_t seed, PuctParams params = {});
+    // With `net` (not owned; outlives the agent), priors and leaf values come from it (ADR-011 §2)
+    // instead of Rule Based scores and the Diff heuristic; everything else is unchanged.
+    explicit PuctAgent(std::uint64_t seed, PuctParams params = {}, LeafEvaluator* net = nullptr);
 
     Action act(const Observation& obs, std::span<const Action> legal) override;
 
@@ -112,8 +117,10 @@ class PuctAgent final : public Agent {
     std::int32_t expand(std::int32_t node, std::int32_t e);
     void backup(std::int32_t leaf, double v);
     [[nodiscard]] double evaluate(std::int32_t node) const;
+    double net_priors(const Observation& o, std::span<const Action> actions);
 
     PuctParams params_;
+    LeafEvaluator* net_ = nullptr;
     Rng rng_;
     SampledChance chance_;  // random outcomes inside the search
     int player_ = 0;
@@ -125,10 +132,11 @@ class PuctAgent final : public Agent {
     std::vector<PuctNode> nodes_;
     std::vector<PuctEdge> edges_;
     std::vector<Action> actions_;    // parallel to edges_
-    std::vector<GameState> states_;  // states_[i] belongs to nodes_[i]; kMaxNodes, reused
+    std::vector<GameState> states_;  // states_[i] belongs to nodes_[i]; budget + 1, reused
     std::vector<int> scores_;
     std::vector<int> kept_scores_;
     std::vector<double> priors_;
+    std::vector<Action> kept_actions_;  // net mode: the node's edges, for the evaluator
     MacroFilter macro_;
     std::vector<std::size_t> keep_;
     std::vector<Action> root_legal_;  // the root's edges: `legal`, or its macro subset (ADR-010 §5)

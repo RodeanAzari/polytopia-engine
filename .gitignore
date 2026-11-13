@@ -12,3 +12,5 @@ data/selfplay/
 
 # Third-party papers kept for reference only (not ours to redistribute)
 docs/refs/
+# Phase 4: LibTorch (make setup-nn; ~2 GB, never committed)
+.deps/

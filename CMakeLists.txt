@@ -53,7 +53,7 @@ target_link_libraries(sim_tests PRIVATE poly_sim GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(sim_tests)
 
-add_executable(search_tests tests/search/test_determinize.cpp tests/search/test_diff_heuristic.cpp tests/search/test_macro.cpp tests/search/test_mc.cpp tests/search/test_mcts.cpp tests/search/test_osla.cpp tests/search/test_puct.cpp tests/search/test_rhea.cpp tests/search/test_rule_based.cpp tests/search/test_match.cpp)
+add_executable(search_tests tests/search/test_determinize.cpp tests/search/test_diff_heuristic.cpp tests/search/test_macro.cpp tests/search/test_mc.cpp tests/search/test_mcts.cpp tests/search/test_osla.cpp tests/search/test_puct.cpp tests/search/test_rhea.cpp tests/search/test_rule_based.cpp tests/search/test_match.cpp tests/search/test_puct_net.cpp)
 target_link_libraries(search_tests PRIVATE poly_search GTest::gtest_main)
 gtest_discover_tests(search_tests)
 

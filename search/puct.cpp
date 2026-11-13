@@ -64,6 +64,15 @@ double positive(const std::string& key, const std::string& value) {
     return v;
 }
 
+int whole(const std::string& key, const std::string& value) {
+    const double v = positive(key, value);
+    if (v != std::floor(v) || v > 1e6) {
+        throw std::invalid_argument("puct: " + key + " must be a whole number, got '" + value +
+                                    "'");
+    }
+    return static_cast<int>(v);
+}
+
 }  // namespace
 
 PuctParams parse_puct_params(std::string_view spec) {
@@ -82,6 +91,8 @@ PuctParams parse_puct_params(std::string_view spec) {
         if (key == "c" || key == "T") {
             const double v = positive(key, value);
             (key == "c" ? p.c : p.temperature) = v;
+        } else if (key == "budget") {
+            p.budget = whole(key, value);
         } else if (key == "K" && (value.size() == 1 && value[0] >= '0' && value[0] <= '8')) {
             p.determinizations = value[0] - '0';
         } else if (key == "macro" && (value == "0" || value == "1")) {
@@ -95,17 +106,19 @@ PuctParams parse_puct_params(std::string_view spec) {
     return p;
 }
 
-PuctAgent::PuctAgent(std::uint64_t seed, PuctParams params)
+PuctAgent::PuctAgent(std::uint64_t seed, PuctParams params, LeafEvaluator* net)
     : params_(params),
+      net_(net),
       rng_(seed),
       chance_(rng_.next()),
-      states_(static_cast<std::size_t>(kMaxNodes)) {
-    nodes_.reserve(static_cast<std::size_t>(kMaxNodes));
+      states_(static_cast<std::size_t>(params.budget) + 1) {
+    check(params.budget > 0, "puct: budget must be positive");
+    nodes_.reserve(states_.size());
 }
 
 std::int32_t PuctAgent::add_node(std::int32_t parent, std::int32_t parent_edge,
                                  std::span<const Action> actions) {
-    check(nodes_.size() < static_cast<std::size_t>(kMaxNodes), "puct: node pool exhausted");
+    check(nodes_.size() < states_.size(), "puct: node pool exhausted");
     const auto index = static_cast<std::int32_t>(nodes_.size());
     const GameState& s = states_[static_cast<std::size_t>(index)];
     PuctNode n{.parent = parent,
@@ -116,11 +129,15 @@ std::int32_t PuctAgent::add_node(std::int32_t parent, std::int32_t parent_edge,
     if (!n.terminal) {
         // ADR-008 §3: Rule Based scores from the player to move's own observation of this state.
         const Observation o = observe(s, s.active_tribe);
-        long long convert_scored = 0;
-        rule_based_scores(o, actions, scores_, convert_scored);
+        // Rule Based scores: the priors, or with a network only the macro filter's input.
+        const bool macro_here = params_.macro && index != 0;
+        if (net_ == nullptr || macro_here) {
+            long long convert_scored = 0;
+            rule_based_scores(o, actions, scores_, convert_scored);
+        }
         // ADR-010: below the root, macro mode keeps a subset (the root's set is reduced in act()).
         keep_.clear();
-        if (params_.macro && index != 0) {
+        if (macro_here) {
             n.first_legal = static_cast<std::int32_t>(legal_pool_.size());
             n.num_legal = static_cast<std::int32_t>(actions.size());
             legal_pool_.insert(legal_pool_.end(), actions.begin(), actions.end());
@@ -130,11 +147,15 @@ std::int32_t PuctAgent::add_node(std::int32_t parent, std::int32_t parent_edge,
                 keep_.push_back(i);
             }
         }
-        kept_scores_.clear();
-        for (const std::size_t i : keep_) {
-            kept_scores_.push_back(scores_[i]);
+        if (net_ != nullptr) {
+            n.value = net_priors(o, actions);
+        } else {
+            kept_scores_.clear();
+            for (const std::size_t i : keep_) {
+                kept_scores_.push_back(scores_[i]);
+            }
+            softmax_priors(kept_scores_, params_.temperature, priors_);
         }
-        softmax_priors(kept_scores_, params_.temperature, priors_);
         n.num_edges = static_cast<std::int32_t>(keep_.size());
         for (std::size_t k = 0; k < keep_.size(); ++k) {
             edges_.push_back(PuctEdge{.prior = priors_[k]});
@@ -142,14 +163,38 @@ std::int32_t PuctAgent::add_node(std::int32_t parent, std::int32_t parent_edge,
         }
     }
     nodes_.push_back(n);
-    nodes_.back().value = evaluate(index);
+    if (net_ == nullptr || n.terminal) {
+        nodes_.back().value = evaluate(index);
+    }
     return index;
+}
+
+// ADR-011 §2: the network's priors over the kept edges (into priors_) and its value, from the
+// mover's observation `o`, returned in the searching player's view (two players: negated at the
+// opponent's nodes).
+double PuctAgent::net_priors(const Observation& o, std::span<const Action> actions) {
+    kept_actions_.clear();
+    for (const std::size_t i : keep_) {
+        kept_actions_.push_back(actions[i]);
+    }
+    double v = 0.0;
+    net_->evaluate(o, kept_actions_, priors_, v);
+    check(priors_.size() == keep_.size(), "puct: evaluator returned the wrong prior count");
+    return o.observer() == player_ ? v : -v;
 }
 
 // ADR-008 §4: Diff vs. the root from the searching player's view; a finished game is ±(the
 // largest magnitude seen so far + 1), so it ranks beyond every non-terminal value.
+// With a network, only finished games are evaluated here: the exact result, +1 / 0 (ranking tie,
+// ADR-007 §3) / -1, on the network's value scale.
 double PuctAgent::evaluate(std::int32_t node) const {
     const GameState& s = states_[static_cast<std::size_t>(node)];
+    if (net_ != nullptr) {
+        if (s.ranking_tied) {
+            return 0.0;
+        }
+        return s.tribes[static_cast<std::size_t>(player_)].result == Result::Win ? 1.0 : -1.0;
+    }
     const double diff = diff_heuristic(root_state_, s, player_, params_.vision);
     if (!s.game_over) {
         return diff;
@@ -208,6 +253,7 @@ std::size_t most_visited(std::span<const PuctEdge> edges) {
 // One forward-model call (ADR-008 §4): edge `e` of `node` applied to a copy of its state.
 std::int32_t PuctAgent::expand(std::int32_t node, std::int32_t e) {
     const auto c = static_cast<std::size_t>(nodes_.size());
+    check(c < states_.size(), "puct: node pool exhausted");
     states_[c] = states_[static_cast<std::size_t>(node)];
     // The copy's own legal set: the root copy's, or below the root the node's edges (macro mode:
     // the node's full set, of which the edges are a subset; ADR-010).
@@ -305,7 +351,7 @@ Action PuctAgent::act(const Observation& obs, std::span<const Action> legal) {
     summed_.assign(root_legal_.size(), PuctEdge{});
     for (int k = 0; k < trees; ++k) {
         root_state_ = params_.determinizations == 0 ? obs.view() : determinize(obs, rng_, chance_);
-        search(root_legal_, kBudget / trees);
+        search(root_legal_, params_.budget / trees);
         const auto root_edges = edges(nodes_[0]);
         for (std::size_t i = 0; i < root_edges.size(); ++i) {
             summed_[i].visits += root_edges[i].visits;
