@@ -9,30 +9,19 @@ encoding (ADR-006). Detail: README, `docs/notebook/2026-11-0[5-8].md`, ADR-001�
 Baselines reimplemented; ADR-007 §6 all pass (ours-rr-20261110, 7,500 games); media
 `docs/media/2026-11-10-baseline-round-robin.{png,md}`. Open: our RHEA tends stronger than Tribes' (sidecar).
 
-## Current: Phase 3 — Action-level MCTS + heuristic priors (IN PROGRESS, started 2026-11-10)
-DoD (docs/buildplan.md §11): beats every baseline incl. RHEA with significance (test seeds, Paper condition,
-our reimplementations: ADR-007 amendment); macro vs. flat; media = win-rate table + replay GIF over RHEA.
-Design: ADR-008 (PUCT, Rule Based softmax priors, Diff leaf, min/max-normalised Q, 2,000 FM calls),
-ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits). Tuning: SPRT on dev only.
+## Phase 3 — Action-level MCTS + heuristic priors: DONE (closed by the user 2026-11-13)
+PUCT + Rule Based priors (ADR-008), K=4 determinization (ADR-009), macro mode (ADR-010); 9 SPRTs (ADR-008 §8)
+→ defaults c 1.25, T 0.125, own-vision Diff, K 4, macro. Tuned headline (test seeds, 200 games/cell): every
+95% lower bound > 50% vs. all 6 baselines, Paper + Fog; vs. RHEA 86.0% (80.5–90.1) Paper. Media
+`docs/media/2026-11-13-p3-headline-tuned.{png,md}`, hero GIF `2026-11-11-hero-puct-vs-rhea` (T=1 agent, kept
+by the user). Tools: `tools/sprt_run.sh`, `tools/headline.sh [jobs] [tag]`, `make plots-headline TAG=`,
+`make replay-game`, `tools/replay_gif.py`. Untried search ideas: leaf value form, tree reuse, Gumbel root.
 
-### Plan
-1. ~~Flat PUCT agent~~ done (a7227f9, "PUCT" in the runner; batch RB scoring fc89bf2, ~55→~26 s/game).
-   Smoke on 10 dev levels: vs RB 13/20, vs RHEA 17/20. Own-vision Diff adopted: SPRT 1 H1 after 300 pairs,
-   Elo +45.4 (95% +21.8 to +69.4), ADR-008 §8 (the SPRT record), 9c4170f. ~30 min per 100-pair batch.
-2. ~~`tools/sprt.py`~~ done (a84e6c5): `sprt.py A B <csv>...` (exit 0 H1, 1 H0, 2 continue, 3 cap), driven by
-   `tools/sprt_run.sh`; variants are `PUCT:c=..:T=..:vision=..:K=..` (785f484).
-3. ~~Determinization~~ done (4cade7b, `PUCT:K=n`).
-   SPRT 2 `det-k4`: H1 after 500 pairs, Elo +25.8 (+7.8 to +43.8); K=4 is the default (dd50860).
-4. ~~Tune c, T~~ done (SPRTs 4–9, ADR-008 §8): c 1.25, T 0.125. Leaf form, tree reuse, Gumbel: untried.
-5. ~~Macro-actions~~ done (d4ae3c5); SPRT 3 H1, Elo +47.2 (+19.8 to +75.2): default since d787779.
-6. ~~Headline~~ done (git 93a2734, engine d787779; 200 games/cell, 16 cells): PUCT's 95% lower bound > 50% vs.
-   all 6 baselines in Paper and Fog (vs. RHEA 77.5%, 71.2–82.7, Paper). Table: notebook 2026-11-11.
-   Media confirmed by the user and published: docs/media/2026-11-11-{p3-headline.png,hero-puct-vs-rhea.gif}
-   (+ sidecars), README. SPRT 4 c=2.5: H0 (c stays 1.25). SPRT 5 T=2: H0 (−39.5); SPRT 6 T=0.5 H1 (+31.4); SPRT 7 T=0.25 H1 (+34.9); SPRT 8 T=0.125 H1 (+21.7), default; SPRT 9 c=2.5 at T=0.125 H0 (0.0).
-   c/T tuning closed (c 1.25, T 0.125). User (2026-11-13): rerun the headline at the tuned defaults, then
-   close Phase 3. **Running:** `tools/headline.sh 8 -tuned` (git 2743c2a; files/log p3-headline-tuned-*; same
-   game seeds as the T=1 run; rerun to resume; no rebuild meanwhile). Then `make plots-headline TAG=-tuned`,
-   paired comparison vs. the T=1 run, new media for confirmation, close Phase 3.
+## Next: Phase 4 — Learned policy/value network (NOT STARTED)
+**Hard MANUAL gate: GPU access**, and the GPU-time budget is decided with the user before starting (CLAUDE.md §1).
+Until then: CPU-only search/heuristic work. Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning.
+Trap: Claude Code kills idle background runs under system memory pressure (4× on 2026-11-12/13; other
+sessions); all runners resume, so just rerun (or start Claude Code with CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1).
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded

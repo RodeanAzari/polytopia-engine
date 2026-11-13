@@ -18,6 +18,6 @@ when the user has confirmed it.
 | Hero GIF: our agent beating RHEA, visit counts on the map. `docs/media/2026-11-11-hero-puct-vs-rhea.gif` + `.md`, README hero (PUCT as Xin-xi beats RHEA 2894–1471 by conquest in 16 ticks, test level 1716822222933, seed 178902269550811470, Paper; 122 frames, 7.8 MB) | 3 | confirmed by the user 2026-11-11 |
 | Win-rate table + chart vs. every baseline, Paper + Fog (200 games/cell, Wilson CIs): `docs/media/2026-11-11-p3-headline.{png,md}`, README Results + At a glance | 3 | confirmed by the user 2026-11-11 |
 | Macro-action vs. flat search comparison: orange rows of the headline chart + SPRT 3 (Elo +47.2, +19.8 to +75.2) in the sidecar | 3 | confirmed by the user 2026-11-11 |
-| Tuned Phase 3 headline (c 1.25, T 0.125; 16 cells × 200 games, same seeds as the T = 1 run, paired comparison): `docs/media/2026-11-13-p3-headline-tuned.{png,md}`, README At a glance + Results updated to it (T = 1 version kept as history) | 3 | **awaiting user confirmation** |
+| Tuned Phase 3 headline (c 1.25, T 0.125; 16 cells × 200 games, same seeds as the T = 1 run, paired comparison): `docs/media/2026-11-13-p3-headline-tuned.{png,md}`, README At a glance + Results updated to it (T = 1 version kept as history) | 3 | confirmed by the user 2026-11-13 |
 | Win rate vs. training time | 4 | — |
 | Demo video (60–120 s) | 5 | — |

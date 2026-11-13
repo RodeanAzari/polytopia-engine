@@ -120,9 +120,9 @@ Every phase's DoD includes **README updated, log entry, media captured, user con
 - [x] Media: baseline round-robin table
 
 ### Phase 3 — Action-level MCTS + heuristic priors
-- [ ] Beats every Tribes agent, including RHEA, with significance
-- [ ] Macro vs. flat comparison
-- [ ] Media: win-rate table with CIs; **replay GIF of a win over RHEA** with visit-count overlay
+- [x] Beats every Tribes agent, including RHEA, with significance
+- [x] Macro vs. flat comparison
+- [x] Media: win-rate table with CIs; **replay GIF of a win over RHEA** with visit-count overlay
 
 ### Phase 4 — Learned policy/value network *(gate: GPU)*
 - [ ] Self-play pipeline; curriculum; network-guided search beats Phase 3's search-only agent (SPRT)

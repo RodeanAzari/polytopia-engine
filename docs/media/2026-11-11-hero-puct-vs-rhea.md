@@ -19,3 +19,6 @@ conquest wins over RHEA in that cell (120 of its 155 wins came before the tick c
   --window 1040x720 --width 760`: 122 frames, 760×526, 7.8 MB (≤ 8 MB, buildplan §13.2); headless Chromium
   renders `tools/viewer/index.html`, so the GIF is exactly what the viewer shows.
 - **View:** the true state (the agent itself saw full observability in this condition).
+- **Agent version:** PUCT before c/T tuning (T = 1, engine `d787779`). The tuned agent (T = 0.125) wins 86.0%
+  vs. RHEA in this condition ([2026-11-13-p3-headline-tuned.md](2026-11-13-p3-headline-tuned.md)); the user chose
+  to keep this game as the hero (2026-11-13).

@@ -16,7 +16,7 @@ Full spec, prior art, phase checklists, out-of-scope list and portfolio delivera
 |---|---|---|
 | 1 — Simulator | DONE (2026-11-08) | Rule-facts sheet 01–05; map-load difftest 700/700; all action types; replay difftest incl. legal-action sets, full + partial obs: 1,000/1,000 games each (+ 200 Mind Bender); agent observation matches Tribes' copy; 5–6× Tribes' speed; replay viewer; action encoding (ADR-006) |
 | 2 — Search baselines | DONE (2026-11-10) | Baselines reimplemented; ADR-007 §6 all pass (7,500 games, every pair overlaps Tribes'); `docs/media/2026-11-10-baseline-round-robin.md` |
-| 3 — Action-level MCTS + heuristic priors | IN PROGRESS | ADR-008/009/010 (PUCT + RB priors, K=4 determinization, macros); beats every baseline incl. RHEA, Paper + Fog (`docs/media/2026-11-11-p3-headline.md`); tuning next |
+| 3 — Action-level MCTS + heuristic priors | DONE (2026-11-13) | ADR-008/009/010 (PUCT + RB priors T 0.125, K=4 determinization, macros; 9 SPRTs); beats every baseline incl. RHEA, Paper + Fog (`docs/media/2026-11-13-p3-headline-tuned.md`) |
 | 4 — Learned policy/value network | NOT STARTED | — |
 | 5 — Evaluation | NOT STARTED | — |
 | 6 — Real game (ADR-003) | NOT STARTED | — |
