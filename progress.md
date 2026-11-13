@@ -29,7 +29,10 @@ ADR-009 (determinize opponents' techs/stars/city stats; K trees, summed visits).
    all 6 baselines in Paper and Fog (vs. RHEA 77.5%, 71.2–82.7, Paper). Table: notebook 2026-11-11.
    Media confirmed by the user and published: docs/media/2026-11-11-{p3-headline.png,hero-puct-vs-rhea.gif}
    (+ sidecars), README. SPRT 4 c=2.5: H0 (c stays 1.25). SPRT 5 T=2: H0 (−39.5); SPRT 6 T=0.5 H1 (+31.4); SPRT 7 T=0.25 H1 (+34.9); SPRT 8 T=0.125 H1 (+21.7), default; SPRT 9 c=2.5 at T=0.125 H0 (0.0).
-   c/T tuning closed (c 1.25, T 0.125). Next: user decides Phase 3 close + headline rerun at tuned defaults.
+   c/T tuning closed (c 1.25, T 0.125). User (2026-11-13): rerun the headline at the tuned defaults, then
+   close Phase 3. **Running:** `tools/headline.sh 8 -tuned` (git 2743c2a; files/log p3-headline-tuned-*; same
+   game seeds as the T=1 run; rerun to resume; no rebuild meanwhile). Then `make plots-headline TAG=-tuned`,
+   paired comparison vs. the T=1 run, new media for confirmation, close Phase 3.
 
 ### Known oracle caveats
 - Search agents (MC/MCTS/RHEA) are not reproducible run-to-run: `GameState.copy()` uses an unseeded
