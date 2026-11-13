@@ -124,9 +124,12 @@ plots:
 	@test -n "$(BENCH_CSV)" || { echo "plots: no data/results/bench-*.csv; run make bench" >&2; exit 1; }
 	.venv/bin/python tools/plot_bench.py docs/media/$(shell date +%F)-sim-speed.png $(BENCH_CSV)
 
-# Phase 3 headline chart from tools/headline.sh's CSVs (prints the table and the "beats every baseline" check)
+# Phase 3 headline chart from tools/headline.sh's CSVs (prints the table and the "beats every baseline" check);
+# TAG= picks a tagged run (tools/headline.sh <jobs> <tag>), e.g. TAG=-tuned
+TAG ?=
 plots-headline:
-	.venv/bin/python tools/plot_headline.py docs/media/$(shell date +%F)-p3-headline.png data/results/p3-headline-*.csv
+	.venv/bin/python tools/plot_headline.py docs/media/$(shell date +%F)-p3-headline$(TAG).png \
+	  data/results/p3-headline$(TAG)-full-*.csv data/results/p3-headline$(TAG)-partial-*.csv
 
 build:
 	cmake -S . -B build/release $(GEN) -DCMAKE_BUILD_TYPE=Release
