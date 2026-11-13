@@ -21,6 +21,13 @@ add_library(poly_search STATIC search/determinize.cpp search/diff_heuristic.cpp 
 target_include_directories(poly_search PUBLIC .)
 target_link_libraries(poly_search PUBLIC poly_sim)
 
+add_library(poly_selfplay STATIC selfplay/record.cpp selfplay/recorder.cpp)
+target_include_directories(poly_selfplay PUBLIC .)
+target_link_libraries(poly_selfplay PUBLIC poly_search)
+
+add_executable(selfplay tools/selfplay.cpp)
+target_link_libraries(selfplay PRIVATE poly_selfplay)
+
 add_executable(oracle_diff tools/oracle_diff.cpp)
 target_link_libraries(oracle_diff PRIVATE poly_search)
 
@@ -49,3 +56,7 @@ gtest_discover_tests(sim_tests)
 add_executable(search_tests tests/search/test_determinize.cpp tests/search/test_diff_heuristic.cpp tests/search/test_macro.cpp tests/search/test_mc.cpp tests/search/test_mcts.cpp tests/search/test_osla.cpp tests/search/test_puct.cpp tests/search/test_rhea.cpp tests/search/test_rule_based.cpp tests/search/test_match.cpp)
 target_link_libraries(search_tests PRIVATE poly_search GTest::gtest_main)
 gtest_discover_tests(search_tests)
+
+add_executable(selfplay_tests tests/selfplay/test_record.cpp)
+target_link_libraries(selfplay_tests PRIVATE poly_selfplay GTest::gtest_main)
+gtest_discover_tests(selfplay_tests)

@@ -148,7 +148,7 @@ test: build
 	.venv/bin/python -m pytest -q tests/python
 
 tidy: build
-	clang-tidy -p build/release --quiet $(shell find sim search tests tools -name '*.cpp')
+	clang-tidy -p build/release --quiet $(shell find sim search selfplay tests tools -name '*.cpp')
 
 format:
 	clang-format -i $(shell find sim search selfplay tests tools -name '*.hpp' -o -name '*.cpp')
@@ -173,5 +173,19 @@ tournament: build
 	python3 oracle/scripts/tournament_summary.py data/results/$(ID).csv \
 	  "--command=make tournament AGENTS=$(AGENTS) REPS=$(REPS) SEEDS=$(SEEDS) OBS=$(OBS) ID=$(ID)"
 
-selfplay train:
+# Phase 4 training records (ADR-011 §4, ADR-012 §2): the agent plays itself on the training levels
+# (data/seeds/train.txt), Paper and Fog alternating. It runs a frozen copy of the binary
+# (build/runs/<git>/), so rebuilding build/release doesn't touch a running job. Resumable: rerun the
+# same command. -> data/selfplay/$(RUN)/<game>.rec + games.csv (never committed).
+RUN ?= bootstrap
+GAMES ?= 2000
+SP_AGENT ?= PUCT
+SP_BIN := build/runs/$(shell git rev-parse --short HEAD)/selfplay
+selfplay: build
+	test -d build/levels/train || python3 oracle/scripts/export_levels.py data/seeds/train.txt build/levels/train
+	mkdir -p $(dir $(SP_BIN)) && cp build/release/selfplay $(SP_BIN)
+	$(SP_BIN) --levels=build/levels/train --games=$(GAMES) --out=data/selfplay/$(RUN) --agent=$(SP_AGENT) \
+	  --id=$(RUN) --jobs=$(JOBS)
+
+train:
 	@echo "make $@: not implemented yet" >&2; exit 1
