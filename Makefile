@@ -187,5 +187,11 @@ selfplay: build
 	$(SP_BIN) --levels=build/levels/train --games=$(GAMES) --out=data/selfplay/$(RUN) --agent=$(SP_AGENT) \
 	  --id=$(RUN) --jobs=$(JOBS)
 
+# Supervised training on a run's records (ADR-011 §3-4): pack them (nn/pack.py), then nn/train.py on the
+# GPU. -> data/selfplay/$(RUN)/train-$(TRAIN_TAG)/step-<k>.pt + log.csv. STEPS, TRAIN_TAG and TRAIN_ARGS optional.
+STEPS ?= 20000
+TRAIN_TAG ?= $(shell date +%Y%m%d-%H%M)
 train:
-	@echo "make $@: not implemented yet" >&2; exit 1
+	.venv/bin/python nn/pack.py data/selfplay/$(RUN)
+	.venv/bin/python nn/train.py data/selfplay/$(RUN)/packed data/selfplay/$(RUN)/train-$(TRAIN_TAG) --steps $(STEPS) \
+	  $(TRAIN_ARGS)
