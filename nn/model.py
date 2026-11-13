@@ -21,16 +21,22 @@ TILE_CHANNELS = sum(TILE_CLASSES) + FLAGS + SCALARS  # 97 + 5 + 4 = 106
 _CLASS_OFFSETS = [sum(TILE_CLASSES[:f]) for f in range(FIELDS)]
 
 
-def expand(fields: torch.Tensor, flags: torch.Tensor, scalars: torch.Tensor, side: int) -> torch.Tensor:
+def expand(fields: torch.Tensor, flags: torch.Tensor, scalars: torch.Tensor, side: int,
+           offsets: torch.Tensor | None = None, shifts: torch.Tensor | None = None) -> torch.Tensor:
     """[N, T, 9] classes + [N, T] flag bits + [N, T, 4] scalars -> [N, 106, side, side] planes.
 
     Channel order: field 0's classes, field 1's, ..., then the 5 flag bits (bit 0 first), then the 4 scalars.
+    `offsets` / `shifts`: the class offsets and flag bit numbers on the device (PolyNet keeps them as buffers,
+    so a forward pass makes no host-to-device copy); built here if not given.
     """
     n, t, _ = fields.shape
-    offsets = torch.tensor(_CLASS_OFFSETS, device=fields.device)
+    if offsets is None:
+        offsets = torch.tensor(_CLASS_OFFSETS, device=fields.device)
+    if shifts is None:
+        shifts = torch.arange(FLAGS, device=flags.device)
     onehot = torch.zeros(n, t, sum(TILE_CLASSES), device=fields.device, dtype=scalars.dtype)
     onehot.scatter_(2, fields.long() + offsets, 1.0)
-    bits = (flags.long().unsqueeze(-1) >> torch.arange(FLAGS, device=flags.device)) & 1
+    bits = (flags.long().unsqueeze(-1) >> shifts) & 1
     planes = torch.cat([onehot, bits.to(scalars.dtype), scalars], dim=2)  # [N, T, 106]
     return planes.transpose(1, 2).reshape(n, TILE_CHANNELS, side, side)
 
@@ -51,6 +57,8 @@ class PolyNet(nn.Module):
     def __init__(self, channels: int = 64, blocks: int = 6) -> None:
         super().__init__()
         self.channels, self.blocks = channels, blocks
+        self.register_buffer("class_offsets", torch.tensor(_CLASS_OFFSETS), persistent=False)
+        self.register_buffer("flag_shifts", torch.arange(FLAGS), persistent=False)
         self.stem = nn.Conv2d(TILE_CHANNELS, channels, 3, padding=1, bias=False)
         self.stem_global = nn.Linear(GLOBAL, channels)  # global features, broadcast over the board
         self.stem_bn = nn.BatchNorm2d(channels)
@@ -62,7 +70,7 @@ class PolyNet(nn.Module):
 
     def forward(self, fields: torch.Tensor, flags: torch.Tensor, scalars: torch.Tensor, global_: torch.Tensor,
                 side: int) -> tuple[torch.Tensor, torch.Tensor]:
-        x = expand(fields, flags, scalars, side)
+        x = expand(fields, flags, scalars, side, self.class_offsets, self.flag_shifts)
         x = self.stem(x) + self.stem_global(global_)[:, :, None, None]
         h = self.trunk(F.relu(self.stem_bn(x)))
         pooled = h.mean(dim=(2, 3))

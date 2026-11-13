@@ -17,7 +17,10 @@ namespace poly::selfplay {
 
 class RecordingPuct final : public search::Agent {
    public:
-    RecordingPuct(std::uint64_t seed, search::PuctParams params) : inner_(seed, params) {}
+    // `net`: the leaf evaluator (ADR-011 §2), or nullptr for the Phase 3 priors and Diff leaf.
+    RecordingPuct(std::uint64_t seed, search::PuctParams params,
+                  search::LeafEvaluator* net = nullptr)
+        : inner_(seed, params, net) {}
 
     Action act(const Observation& obs, std::span<const Action> legal) override;
 

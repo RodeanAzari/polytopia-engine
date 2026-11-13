@@ -4,12 +4,26 @@ TRIBES_COMMIT := 270e7e564630e5ef3dcc04c96dd66f58ef7273f3
 GEN := $(shell command -v ninja >/dev/null 2>&1 && echo "-G Ninja")
 JOBS ?= $(shell nproc)
 
-.PHONY: replay-game setup setup-nn oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender difftest-batched difftest-fm build test tidy format clean difftest bench replay tournament selfplay train plots plots-headline ci
+.PHONY: replay-game setup setup-nn build-nn tidy-nn oracle-smoke oracle-equiv oracle-log difftest-init difftest-mindbender difftest-batched difftest-fm build test tidy format clean difftest bench replay tournament selfplay train plots plots-headline ci
 
-# Phase 4: PyTorch with CUDA into the same venv (needs an NVIDIA driver; not run by CI).
+# Phase 4: PyTorch with CUDA into the same venv, and LibTorch (same version) for C++ inference in
+# .deps/ (ADR-012 §1; ~3 GB, never committed). LibTorch ships cuDNN's front library only: its
+# sub-libraries come from the pip wheel, byte-identical front library checked. Not run by CI.
+LIBTORCH := .deps/libtorch-2.14.0-cu130
+LIBTORCH_URL := https://download-r2.pytorch.org/libtorch/cu130/libtorch-shared-with-deps-2.14.0%2Bcu130.zip
+CUDNN_PIP = $(shell .venv/bin/python -c "import nvidia.cudnn, os; print(os.path.join(nvidia.cudnn.__path__[0], 'lib'))")
 setup-nn:
 	python3 -m venv .venv && .venv/bin/pip install -q -r requirements-nn.txt
 	.venv/bin/python -c "import torch; assert torch.cuda.is_available(), 'no CUDA'; print(torch.__version__, torch.cuda.get_device_name(0))"
+	@if [ ! -d $(LIBTORCH) ]; then mkdir -p .deps && curl -sL -o .deps/libtorch.zip $(LIBTORCH_URL) && \
+	  (cd .deps && unzip -q libtorch.zip && mv libtorch $(notdir $(LIBTORCH)) && rm libtorch.zip); fi
+	cmp $(CUDNN_PIP)/libcudnn.so.9 $(LIBTORCH)/lib/libcudnn.so.9
+	for f in $(CUDNN_PIP)/libcudnn_*.so.9; do ln -sf $$f $(LIBTORCH)/lib/; done
+
+# The build with the LibTorch evaluator (selfplay --net, net_check) in build/torch.
+build-nn:
+	cmake -S . -B build/torch $(GEN) -DCMAKE_BUILD_TYPE=Release -DPOLY_TORCH=ON
+	cmake --build build/torch -j$(JOBS) --target selfplay net_check
 
 # Tribes is unlicensed: cloned locally at a pinned commit, never committed (ADR-002).
 setup:
@@ -148,7 +162,12 @@ test: build
 	.venv/bin/python -m pytest -q tests/python
 
 tidy: build
-	clang-tidy -p build/release --quiet $(shell find sim search selfplay tests tools -name '*.cpp')
+	clang-tidy -p build/release --quiet $(filter-out $(TORCH_SRC),$(shell find sim search selfplay tests tools -name '*.cpp'))
+
+# LibTorch sources: only in the POLY_TORCH build (make build-nn), linted against it.
+TORCH_SRC := selfplay/torch_evaluator.cpp tools/net_check.cpp
+tidy-nn: build-nn
+	clang-tidy -p build/torch --quiet $(TORCH_SRC) tools/selfplay.cpp
 
 format:
 	clang-format -i $(shell find sim search selfplay tests tools -name '*.hpp' -o -name '*.cpp')

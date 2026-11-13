@@ -28,6 +28,31 @@ target_link_libraries(poly_selfplay PUBLIC poly_search)
 add_executable(selfplay tools/selfplay.cpp)
 target_link_libraries(selfplay PRIVATE poly_selfplay)
 
+# Phase 4 network inference (ADR-012 §1), off by default: LibTorch linked directly (its CMake
+# package wants a CUDA toolkit, which inference doesn't need). make setup-nn fetches it; make
+# build-nn builds into build/torch.
+option(POLY_TORCH "Build the LibTorch evaluator" OFF)
+set(POLY_LIBTORCH "${CMAKE_SOURCE_DIR}/.deps/libtorch-2.14.0-cu130" CACHE PATH "LibTorch root")
+if(POLY_TORCH)
+    add_library(poly_torch STATIC selfplay/torch_evaluator.cpp)
+    # CUDA runtime headers (CUDA graphs) from the pip wheel: no CUDA toolkit is installed.
+    file(GLOB POLY_CUDA_INCLUDE "${CMAKE_SOURCE_DIR}/.venv/lib/python3*/site-packages/nvidia/cu13/include")
+    if(NOT POLY_CUDA_INCLUDE)
+        message(FATAL_ERROR "POLY_TORCH: CUDA headers not found; run make setup-nn")
+    endif()
+    target_include_directories(poly_torch SYSTEM PUBLIC "${POLY_LIBTORCH}/include"
+                               "${POLY_LIBTORCH}/include/torch/csrc/api/include" ${POLY_CUDA_INCLUDE})
+    target_compile_definitions(poly_torch PUBLIC POLY_TORCH=1)
+    target_link_directories(poly_torch PUBLIC "${POLY_LIBTORCH}/lib")
+    # torch_cuda registers the CUDA backend from a static initialiser: keep it linked.
+    target_link_libraries(poly_torch PUBLIC poly_selfplay -Wl,--no-as-needed torch_cuda c10_cuda
+                          -Wl,--as-needed torch torch_cpu c10 "${POLY_LIBTORCH}/lib/libcudart.so.13")
+    target_link_options(poly_torch PUBLIC "-Wl,-rpath,${POLY_LIBTORCH}/lib")
+    target_link_libraries(selfplay PRIVATE poly_torch)
+    add_executable(net_check tools/net_check.cpp)
+    target_link_libraries(net_check PRIVATE poly_torch)
+endif()
+
 add_executable(oracle_diff tools/oracle_diff.cpp)
 target_link_libraries(oracle_diff PRIVATE poly_search)
 

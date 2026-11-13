@@ -4,3 +4,4 @@
 --extra-index-url https://pypi.org/simple
 torch==2.14.0
 numpy==2.5.4
+nvidia-cuda-crt==13.0.88  # CUDA runtime headers (crt/) for the C++ CUDA-graph evaluator (make build-nn)

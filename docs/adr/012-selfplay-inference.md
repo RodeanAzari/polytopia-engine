@@ -35,7 +35,7 @@ Measured facts (notebook 2026-11-13):
   It has a CPU fallback for tests and for CI, which has no GPU.
 - **Model format:** exported from PyTorch. The two candidates are `torch.export` + AOTInductor and TorchScript
   `trace`. The first prototype step picks one by parity (C++ vs. PyTorch outputs within fp16 tolerance) and by
-  measured throughput, and records the result here.
+  measured throughput, and records the result here (see the amendment below).
 - **Batching:**
   - Each actor thread runs **many games at once** (start 64). A search pauses at its leaf and waits for the
     batch; this is a resumable search state, not one OS thread per game.
@@ -44,6 +44,26 @@ Measured facts (notebook 2026-11-13):
   - No virtual loss inside a tree to start with: one leaf per game per round keeps each tree's search exactly
     the sequential PUCT of ADR-008.
 - Everything goes through the `Observation` → planes path of ADR-011 §1. The evaluator never sees a `GameState`.
+
+**Amended at implementation (2026-11-13), from measurements (notebook 2026-11-13):**
+- **Model format: TorchScript `trace`.** C++ matches PyTorch to 5 × 10⁻⁴ (fp16 resolution) at any batch size.
+  AOTInductor was rejected: it needs a CUDA toolkit (`CUDA_HOME`), and none is installed. The exported module
+  (`nn/export.py`) runs the net in fp16 and gathers each position's edge logits on the GPU, so only [N, K]
+  logits come back to the CPU.
+- **LibTorch linked directly**, not through its CMake package, which demands a CUDA toolkit.
+  `make setup-nn` adds two pieces LibTorch doesn't ship, both taken from the pip wheels of the same version:
+  - cuDNN's sub-libraries (its front library is byte-identical to pip's, checked);
+  - the CUDA runtime headers.
+- **TorchScript's runtime fusers are off.** They compile kernels with NVRTC, which needs
+  `libnvrtc-builtins`, also not shipped. Convolutions are cuDNN either way.
+- **CUDA graphs.**
+  - A plain forward pass costs ~5–7 ms whatever the batch size (about 60 kernel launches, slowed further by CPU
+    contention). That is about 10k positions/s at batch 64.
+  - Replaying the forward pass as one captured CUDA graph per batch size (8, 16, 32, ..., padded up) gives
+    ~52k positions/s at batch 64, the GPU's own limit for the 64 × 6 net here.
+- **One OS thread per game, blocking in the evaluator,** instead of resumable search states. It is simpler, it
+  leaves PUCT unchanged, and with CUDA graphs a batch of 64 already reaches the GPU's limit. 64 game threads
+  take ~1.7 GB of search memory at budget 400.
 
 ### 2. Self-play settings (start; each change by measurement)
 - **Settings:** 2-player, 11 × 11, Capitals, Tribes' level generator with *training* seeds, disjoint from dev and
