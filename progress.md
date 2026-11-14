@@ -29,8 +29,9 @@ Pilot SPRT (dev, Fog, vs. PUCT): `PUCT:net=data/nets/boot-vw1-s3000.ts` H1 accep
 100 pairs (notebook 2026-11-14). `leaf=diff` SPRT stopped at b2 47/200 (resumable).
 Running (stage 2, since 2026-11-14 11:29): gen1 self-play, 2,000 games with the net on both sides; 79 done at
 14:21, ~42 games/h estimated (~46 h left); runs detached (`setsid nohup`, pgrep "selfplay --levels"); command in
-notebook 2026-11-14 (rerun to resume; 64 jobs, not 96). Portfolio moment (pilot SPRT) listed, awaiting the user. Then: train on
-bootstrap + gen1, SPRT gen1 net vs. boot net. Never two GPU processes at once.
+notebook 2026-11-14 (rerun to resume; 64 jobs, not 96). After gen1: train on bootstrap + gen1, SPRT gen1 vs.
+boot net, then the test-seed headline (vs. PUCT and RHEA, Paper + Fog) for both nets (user, 2026-11-14: no GPU
+pause for it). Pilot-SPRT sidecar `docs/media/2026-11-14-p4-pilot-sprt.md` awaits the user's review. Never two GPU processes at once.
 Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning. Untried: leaf value form, tree reuse, Gumbel.
 Trap: Claude Code kills idle background runs under system memory pressure (4× on 2026-11-12/13; other
 sessions); all runners resume, so just rerun (or start Claude Code with CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1).
