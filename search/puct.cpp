@@ -75,6 +75,30 @@ int whole(const std::string& key, const std::string& value) {
 
 }  // namespace
 
+namespace {
+
+// One key=value item of a spec into p; false if the key or its value isn't one of ours.
+bool set_param(PuctParams& p, const std::string& key, const std::string& value) {
+    if (key == "c" || key == "T") {
+        (key == "c" ? p.c : p.temperature) = positive(key, value);
+    } else if (key == "leaf" && (value == "net" || value == "diff")) {
+        p.net_value = value == "net";
+    } else if (key == "budget") {
+        p.budget = whole(key, value);
+    } else if (key == "K" && (value.size() == 1 && value[0] >= '0' && value[0] <= '8')) {
+        p.determinizations = value[0] - '0';
+    } else if (key == "macro" && (value == "0" || value == "1")) {
+        p.macro = value == "1";
+    } else if (key == "vision" && (value == "active" || value == "own")) {
+        p.vision = value == "own" ? DiffVision::Player : DiffVision::ActiveTribe;
+    } else {
+        return false;
+    }
+    return true;
+}
+
+}  // namespace
+
 PuctParams parse_puct_params(std::string_view spec) {
     PuctParams p;
     while (!spec.empty()) {
@@ -86,22 +110,7 @@ PuctParams parse_puct_params(std::string_view spec) {
             throw std::invalid_argument("puct: expected key=value, got '" + std::string(item) +
                                         "'");
         }
-        const std::string key(item.substr(0, eq));
-        const std::string value(item.substr(eq + 1));
-        if (key == "c" || key == "T") {
-            const double v = positive(key, value);
-            (key == "c" ? p.c : p.temperature) = v;
-        } else if (key == "leaf" && (value == "net" || value == "diff")) {
-            p.net_value = value == "net";
-        } else if (key == "budget") {
-            p.budget = whole(key, value);
-        } else if (key == "K" && (value.size() == 1 && value[0] >= '0' && value[0] <= '8')) {
-            p.determinizations = value[0] - '0';
-        } else if (key == "macro" && (value == "0" || value == "1")) {
-            p.macro = value == "1";
-        } else if (key == "vision" && (value == "active" || value == "own")) {
-            p.vision = value == "own" ? DiffVision::Player : DiffVision::ActiveTribe;
-        } else {
+        if (!set_param(p, std::string(item.substr(0, eq)), std::string(item.substr(eq + 1)))) {
             throw std::invalid_argument("puct: unknown parameter '" + std::string(item) + "'");
         }
     }
