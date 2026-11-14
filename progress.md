@@ -27,9 +27,10 @@ Bootstrap done: 2,000 games, 1.39 M decisions (`data/selfplay/bootstrap`); nets 
 `data/nets/` (notebook). Batcher fix `0b723cb` (batch runs when every searching thread waits).
 Pilot SPRT (dev, Fog, vs. PUCT): `PUCT:net=data/nets/boot-vw1-s3000.ts` H1 accepted, +96 Elo (+55 to +141),
 100 pairs (notebook 2026-11-14). `leaf=diff` SPRT stopped at b2 47/200 (resumable).
-Running (stage 2, since 2026-11-14 11:29): gen1 self-play, 2,000 games with the net on both sides; 79 done at
-14:21, ~42 games/h estimated (~46 h left); runs detached (`setsid nohup`, pgrep "selfplay --levels"); command in
-notebook 2026-11-14 (rerun to resume; 64 jobs, not 96). After gen1: train on bootstrap + gen1, SPRT gen1 vs.
+Running (stage 2, since 2026-11-14 11:29): gen1 self-play, 2,000 games with the net on both sides; 261 done at
+18:37, restarted on `113d3ee` with `--batch=32 --pipelines=2` (+27% in an A/B); runs detached (`setsid nohup`;
+`ps -eo pid,cmd | grep "[b]uild/runs/.*selfplay"`); command in notebook 2026-11-14 (rerun to resume). The user may
+move work to the desktop RTX 3060 (remote) from 2026-11-15. After gen1: train on bootstrap + gen1, SPRT gen1 vs.
 boot net, then the test-seed headline (vs. PUCT and RHEA, Paper + Fog) for both nets (user, 2026-11-14: no GPU
 pause for it). Pilot-SPRT sidecar `docs/media/2026-11-14-p4-pilot-sprt.md` awaits the user's review. Never two GPU processes at once.
 Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning. Untried: leaf value form, tree reuse, Gumbel.
