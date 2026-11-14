@@ -25,9 +25,11 @@ Done: ADR-011 (network; amended: compact features expanded in-model) + ADR-012 (
 `pack.py`, `train.py`; `make selfplay RUN= GAMES=` / `make train RUN= STEPS=`; train seeds `data/seeds/train.txt`.
 Bootstrap done: 2,000 games, 1.39 M decisions (`data/selfplay/bootstrap`); nets trained and exported to
 `data/nets/` (notebook). Batcher fix `0b723cb` (batch runs when every searching thread waits).
-Running (started 22:25): pilot SPRTs `p4-netprior-diff` (net priors + Diff leaf) and `p4-netprior-netvalue`
-(net priors + value) vs. PUCT, dev, Fog; `TOURNAMENT=build/runs/0b723cb-torch/tournament tools/sprt_run.sh`
-(rerun the same command to resume). Next: read the SPRTs; re-measure self-play throughput with the fix.
+Pilot SPRT (dev, Fog, vs. PUCT): `PUCT:net=data/nets/boot-vw1-s3000.ts` H1 accepted, +96 Elo (+55 to +141),
+100 pairs (notebook 2026-11-14). Running: `p4-netprior-diff` batch 2 (`TOURNAMENT=build/runs/8628966-torch/tournament
+tools/sprt_run.sh p4-netprior-diff "PUCT:leaf=diff:net=data/nets/boot-vw025-s17000.ts" PUCT build/levels/dev partial 48`;
+rerun to resume). Throughput: ~25–40 net games/h on the A2000; never two GPU processes at once (notebook).
+Next: test-seed headline of the net agent (portfolio moment; ask the user first), then stage 2 self-play.
 Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning. Untried: leaf value form, tree reuse, Gumbel.
 Trap: Claude Code kills idle background runs under system memory pressure (4× on 2026-11-12/13; other
 sessions); all runners resume, so just rerun (or start Claude Code with CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1).
