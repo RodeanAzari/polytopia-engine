@@ -29,8 +29,9 @@ Pilot SPRT (dev, Fog, vs. PUCT): `PUCT:net=data/nets/boot-vw1-s3000.ts` H1 accep
 100 pairs (notebook 2026-11-14). `leaf=diff` SPRT stopped at b2 47/200 (resumable).
 Running (stage 2, since 2026-11-14 11:29): gen1 self-play, 2,000 games with the net on both sides; 261 done at
 18:37, restarted on `113d3ee` with `--batch=32 --pipelines=2` (+27% in an A/B); runs detached (`setsid nohup`;
-`ps -eo pid,cmd | grep "[b]uild/runs/.*selfplay"`); command in notebook 2026-11-14 (rerun to resume). The user may
-move work to the desktop RTX 3060 (remote) from 2026-11-15. After gen1: train on bootstrap + gen1, SPRT gen1 vs.
+`ps -eo pid,cmd | grep "[b]uild/runs/.*selfplay"`); command in notebook 2026-11-14 (rerun to resume). **2026-11-15 morning:**
+set up the user's desktop (RTX 3060, Windows, another network) per `docs/desktop-setup.md`: everything needing
+the user's dad (Part A) first and in one go, then Chrome Remote Desktop → WSL + Tailscale + SSH, then work moves there. After gen1: train on bootstrap + gen1, SPRT gen1 vs.
 boot net, then the test-seed headline (vs. PUCT and RHEA, Paper + Fog) for both nets (user, 2026-11-14: no GPU
 pause for it). Pilot-SPRT sidecar `docs/media/2026-11-14-p4-pilot-sprt.md` awaits the user's review. Never two GPU processes at once.
 Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning. Untried: leaf value form, tree reuse, Gumbel.

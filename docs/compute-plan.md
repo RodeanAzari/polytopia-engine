@@ -11,7 +11,8 @@ Agreed with the user on 2026-11-13 (buildplan §8: "compute plan written before 
 - **No cloud spending** under this plan. Cloud GPUs need a separate request to the user, with a dollar figure.
   Prices checked on 2026-11-13: RTX 4090 $0.34–0.89/h, A100 80 GB $1.09–1.39/h, H100 $1.99–2.90/h.
   These are GPU-only listings; the CPU cores that come with them vary by provider.
-- **Possible second machine:** the user's desktop, RTX 3060 + Ryzen 5 5600. Not set up; decided after the pilot.
+- **Second machine:** the user's desktop, RTX 3060 + Ryzen 5 5600 (Windows, at another location). Setup
+  planned 2026-11-15: `docs/desktop-setup.md`.
 
 ## Budget (local, staged)
 | Stage | Running time | Go/stop check |
