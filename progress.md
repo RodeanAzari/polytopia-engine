@@ -26,10 +26,10 @@ Done: ADR-011 (network; amended: compact features expanded in-model) + ADR-012 (
 Bootstrap done: 2,000 games, 1.39 M decisions (`data/selfplay/bootstrap`); nets trained and exported to
 `data/nets/` (notebook). Batcher fix `0b723cb` (batch runs when every searching thread waits).
 Pilot SPRT (dev, Fog, vs. PUCT): `PUCT:net=data/nets/boot-vw1-s3000.ts` H1 accepted, +96 Elo (+55 to +141),
-100 pairs (notebook 2026-11-14). Running: `p4-netprior-diff` batch 2 (`TOURNAMENT=build/runs/8628966-torch/tournament
-tools/sprt_run.sh p4-netprior-diff "PUCT:leaf=diff:net=data/nets/boot-vw025-s17000.ts" PUCT build/levels/dev partial 48`;
-rerun to resume). Throughput: ~25–40 net games/h on the A2000; never two GPU processes at once (notebook).
-Next: test-seed headline of the net agent (portfolio moment; ask the user first), then stage 2 self-play.
+100 pairs (notebook 2026-11-14). `leaf=diff` SPRT stopped at b2 47/200 (resumable).
+Running (stage 2, since 2026-11-14 11:29): gen1 self-play, 2,000 games with the net on both sides, ~40 games/h
+estimated (~50 h); command in notebook 2026-11-14 (rerun to resume; 64 jobs, not 96). Then: train on
+bootstrap + gen1, SPRT gen1 net vs. boot net. Never two GPU processes at once.
 Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning. Untried: leaf value form, tree reuse, Gumbel.
 Trap: Claude Code kills idle background runs under system memory pressure (4× on 2026-11-12/13; other
 sessions); all runners resume, so just rerun (or start Claude Code with CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1).
