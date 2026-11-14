@@ -11,8 +11,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <iostream>
 #include <stdexcept>
 
 #include "poly/action_encoding.hpp"
@@ -130,6 +132,12 @@ TorchEvaluator::TorchEvaluator(const std::string& model, int side, int max_batch
         impl_->out_logits = torch::zeros({max_batch, kGraphEdges}, pinned);
         impl_->out_value = torch::zeros({max_batch}, pinned);
     }
+    // POLY_EVAL_LOG=<seconds>: the batcher prints its statistics that often (long runs).
+    if (const char* v = std::getenv("POLY_EVAL_LOG");
+        v != nullptr) {  // NOLINT(concurrency-mt-unsafe)
+        log_every_s_ = std::atoi(v);
+    }
+    started_ = last_log_ = std::chrono::steady_clock::now();
     batcher_ = std::thread([this] { run(); });
 }
 
@@ -201,6 +209,25 @@ void TorchEvaluator::end_search() {
     queued_.notify_one();  // the waiting requests may now be all the searching threads have
 }
 
+void TorchEvaluator::log_stats() {
+    if (log_every_s_ <= 0) {
+        return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (now - last_log_ < std::chrono::seconds(log_every_s_)) {
+        return;
+    }
+    const double wall = std::chrono::duration<double>(now - started_).count();
+    last_log_ = now;
+    const EvaluatorStats st = stats();
+    std::cerr << "evaluator: " << wall << " s: " << st.positions << " positions, " << st.batches
+              << " batches (" << st.graph_batches << " graphs), mean batch "
+              << static_cast<double>(st.positions) / static_cast<double>(std::max(1LL, st.batches))
+              << ", " << st.gpu_seconds << " s in forward, " << st.fill_wait_seconds
+              << " s waiting for a batch to fill, " << static_cast<double>(st.positions) / wall
+              << " positions/s\n";
+}
+
 void TorchEvaluator::run() {
     std::vector<Request*> batch;
     for (;;) {
@@ -217,7 +244,10 @@ void TorchEvaluator::run() {
                 return stop_ || std::cmp_greater_equal(queue_.size(), want);
             };
             if (!full()) {
+                const auto w0 = std::chrono::steady_clock::now();
                 queued_.wait_for(lock, std::chrono::microseconds(max_wait_us_), full);
+                stats_.fill_wait_seconds +=
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - w0).count();
             }
             batch.clear();
             while (!queue_.empty() && std::cmp_less(batch.size(), max_batch_)) {
@@ -248,6 +278,7 @@ void TorchEvaluator::run() {
             stats_.gpu_seconds += secs;
         }
         done_.notify_all();
+        log_stats();
     }
 }
 

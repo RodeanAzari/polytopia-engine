@@ -8,6 +8,7 @@
 // Built only with POLY_TORCH (CMake), so CI and the plain build need no LibTorch.
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
@@ -25,8 +26,9 @@ namespace poly::selfplay {
 struct EvaluatorStats {
     long long batches = 0;
     long long positions = 0;
-    long long graph_batches = 0;  // of `batches`, those replayed from a CUDA graph
-    double gpu_seconds = 0.0;     // forward passes incl. transfers, measured by the batcher
+    long long graph_batches = 0;     // of `batches`, those replayed from a CUDA graph
+    double gpu_seconds = 0.0;        // forward passes incl. transfers, measured by the batcher
+    double fill_wait_seconds = 0.0;  // the batcher waiting for a batch to fill (up to max_wait)
 };
 
 class TorchEvaluator final : public search::LeafEvaluator {
@@ -57,6 +59,7 @@ class TorchEvaluator final : public search::LeafEvaluator {
    private:
     struct Request;
     void run();
+    void log_stats();  // every POLY_EVAL_LOG seconds (env), from the batcher thread
     bool forward(std::vector<Request*>& batch);  // true if it replayed a CUDA graph
 
     struct Impl;  // LibTorch types stay out of this header
@@ -71,6 +74,9 @@ class TorchEvaluator final : public search::LeafEvaluator {
     int searching_ = 0;  // threads between begin_search and end_search
     bool stop_ = false;
     EvaluatorStats stats_;
+    int log_every_s_ = 0;
+    std::chrono::steady_clock::time_point started_;
+    std::chrono::steady_clock::time_point last_log_;
     std::thread batcher_;
 };
 
