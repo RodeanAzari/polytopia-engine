@@ -6,6 +6,7 @@
 // tests/python/test_torch_parity.py compares these with the exported module run by PyTorch.
 //
 // Usage: net_check <model.ts> <record.rec> <decisions> [threads] [max_batch] [graphs 0|1]
+//        [pipelines]
 // (more decisions than the record holds cycle through it, for throughput measurements)
 
 #include <chrono>
@@ -38,8 +39,9 @@ int main(int argc, char** argv) {
         const int threads = args.size() > 3 ? std::stoi(args[3]) : 1;
         const int batch = args.size() > 4 ? std::stoi(args[4]) : 64;
         const bool graphs = args.size() <= 5 || args[5] != "0";
+        const int pipelines = args.size() > 6 ? std::stoi(args[6]) : 1;
         const int side = static_cast<int>(rec.side);
-        poly::selfplay::TorchEvaluator eval(args[0], side, batch, 2000, true, graphs);
+        poly::selfplay::TorchEvaluator eval(args[0], side, batch, 2000, true, graphs, pipelines);
 
         std::vector<std::vector<float>> logits(n);
         std::vector<float> values(n);

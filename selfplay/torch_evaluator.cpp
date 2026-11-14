@@ -15,6 +15,7 @@
 #include <cstring>
 #include <exception>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 
 #include "poly/action_encoding.hpp"
@@ -39,15 +40,22 @@ struct CapturedGraph {
     torch::Tensor value;
 };
 
-struct TorchEvaluator::Impl {
-    torch::jit::Module module;
-    torch::Device device{torch::kCPU};
+// One batcher's own GPU resources: a graph is replayed by one thread at a time, so each batcher has
+// its own graphs, staging and stream.
+struct TorchEvaluator::Pipeline {
+    std::optional<c10::cuda::CUDAStream> stream;  // CUDA only
     std::vector<CapturedGraph> graphs;  // ascending batch sizes; empty: plain calls only
     // Graph path: pinned host staging for the inputs (max_batch rows, kGraphEdges edges) and the
     // outputs, so the copies are asynchronous and a batch synchronises once (notebook 2026-11-13).
     std::vector<torch::Tensor> staging;
     torch::Tensor out_logits;
     torch::Tensor out_value;
+};
+
+struct TorchEvaluator::Impl {
+    torch::jit::Module module;
+    torch::Device device{torch::kCPU};
+    std::vector<Pipeline> pipelines;
 };
 
 struct TorchEvaluator::Request {
@@ -99,13 +107,13 @@ CapturedGraph capture(torch::jit::Module& m, std::int64_t batch, std::int64_t ti
 }  // namespace
 
 TorchEvaluator::TorchEvaluator(const std::string& model, int side, int max_batch, int max_wait_us,
-                               bool cuda, bool cuda_graphs)
+                               bool cuda, bool cuda_graphs, int pipelines)
     : impl_(std::make_unique<Impl>()),
       side_(side),
       max_batch_(max_batch),
       max_wait_us_(max_wait_us) {
-    if (side <= 0 || side > kMaxSide || max_batch <= 0 || max_wait_us < 0) {
-        throw std::invalid_argument("TorchEvaluator: bad side, batch or wait");
+    if (side <= 0 || side > kMaxSide || max_batch <= 0 || max_wait_us < 0 || pipelines <= 0) {
+        throw std::invalid_argument("TorchEvaluator: bad side, batch, wait or pipelines");
     }
     if (cuda && !torch::cuda::is_available()) {
         throw std::runtime_error("TorchEvaluator: CUDA requested but not available");
@@ -118,19 +126,26 @@ TorchEvaluator::TorchEvaluator(const std::string& model, int side, int max_batch
     torch::jit::setTensorExprFuserEnabled(false);
     impl_->module = torch::jit::load(model, impl_->device);
     impl_->module.eval();
-    if (cuda && cuda_graphs) {
+    impl_->pipelines.resize(static_cast<std::size_t>(pipelines));
+    for (Pipeline& p : impl_->pipelines) {
+        if (cuda) {
+            p.stream = c10::cuda::getStreamFromPool();
+        }
+        if (!cuda || !cuda_graphs) {
+            continue;
+        }
         const std::int64_t tiles = static_cast<std::int64_t>(side) * side;
         for (std::int64_t b = 8; b < max_batch; b *= 2) {
-            impl_->graphs.push_back(capture(impl_->module, b, tiles, impl_->device));
+            p.graphs.push_back(capture(impl_->module, b, tiles, impl_->device));
         }
-        impl_->graphs.push_back(capture(impl_->module, max_batch, tiles, impl_->device));
-        impl_->staging = zero_inputs(max_batch, tiles, kGraphEdges, torch::kCPU);
-        for (torch::Tensor& h : impl_->staging) {
+        p.graphs.push_back(capture(impl_->module, max_batch, tiles, impl_->device));
+        p.staging = zero_inputs(max_batch, tiles, kGraphEdges, torch::kCPU);
+        for (torch::Tensor& h : p.staging) {
             h = h.pin_memory();
         }
         const auto pinned = torch::TensorOptions().dtype(torch::kFloat32).pinned_memory(true);
-        impl_->out_logits = torch::zeros({max_batch, kGraphEdges}, pinned);
-        impl_->out_value = torch::zeros({max_batch}, pinned);
+        p.out_logits = torch::zeros({max_batch, kGraphEdges}, pinned);
+        p.out_value = torch::zeros({max_batch}, pinned);
     }
     // POLY_EVAL_LOG=<seconds>: the batcher prints its statistics that often (long runs).
     if (const char* v = std::getenv("POLY_EVAL_LOG");
@@ -138,7 +153,9 @@ TorchEvaluator::TorchEvaluator(const std::string& model, int side, int max_batch
         log_every_s_ = std::atoi(v);
     }
     started_ = last_log_ = std::chrono::steady_clock::now();
-    batcher_ = std::thread([this] { run(); });
+    for (Pipeline& p : impl_->pipelines) {
+        batchers_.emplace_back([this, &p] { run(p); });
+    }
 }
 
 TorchEvaluator::~TorchEvaluator() {
@@ -147,7 +164,9 @@ TorchEvaluator::~TorchEvaluator() {
         stop_ = true;
     }
     queued_.notify_all();
-    batcher_.join();
+    for (std::thread& t : batchers_) {
+        t.join();
+    }
 }
 
 EvaluatorStats TorchEvaluator::stats() const {
@@ -214,12 +233,16 @@ void TorchEvaluator::log_stats() {
         return;
     }
     const auto now = std::chrono::steady_clock::now();
-    if (now - last_log_ < std::chrono::seconds(log_every_s_)) {
-        return;
+    EvaluatorStats st;
+    {
+        const std::scoped_lock lock(mu_);  // last_log_ is shared by the batchers
+        if (now - last_log_ < std::chrono::seconds(log_every_s_)) {
+            return;
+        }
+        last_log_ = now;
+        st = stats_;
     }
     const double wall = std::chrono::duration<double>(now - started_).count();
-    last_log_ = now;
-    const EvaluatorStats st = stats();
     std::cerr << "evaluator: " << wall << " s: " << st.positions << " positions, " << st.batches
               << " batches (" << st.graph_batches << " graphs), mean batch "
               << static_cast<double>(st.positions) / static_cast<double>(std::max(1LL, st.batches))
@@ -228,7 +251,11 @@ void TorchEvaluator::log_stats() {
               << " positions/s\n";
 }
 
-void TorchEvaluator::run() {
+void TorchEvaluator::run(Pipeline& p) {
+    std::optional<c10::cuda::CUDAStreamGuard> on;  // this batcher's copies and replays
+    if (p.stream) {
+        on.emplace(*p.stream);
+    }
     std::vector<Request*> batch;
     for (;;) {
         {
@@ -237,10 +264,13 @@ void TorchEvaluator::run() {
             if (queue_.empty()) {
                 return;  // stopping
             }
-            // Full when every searching thread waits (or max_batch do); a caller outside
-            // begin_search (raw()) can't be counted, so with none searching only max_batch is full.
+            // Full when every searching thread not already in another batcher's batch waits (or
+            // max_batch do); a caller outside begin_search (raw()) can't be counted, so with none
+            // searching only max_batch is full.
             const auto full = [this] {
-                const int want = searching_ > 0 ? std::min(max_batch_, searching_) : max_batch_;
+                const int want = searching_ > 0
+                                     ? std::clamp(searching_ - in_flight_, 1, max_batch_)
+                                     : max_batch_;
                 return stop_ || std::cmp_greater_equal(queue_.size(), want);
             };
             if (!full()) {
@@ -254,11 +284,12 @@ void TorchEvaluator::run() {
                 batch.push_back(queue_.front());
                 queue_.pop_front();
             }
+            in_flight_ += static_cast<int>(batch.size());
         }
         const auto t0 = std::chrono::steady_clock::now();
         bool replayed = false;
         try {
-            replayed = forward(batch);
+            replayed = forward(p, batch);
         } catch (...) {  // every caller of this batch gets the error, the batcher keeps running
             const std::exception_ptr e = std::current_exception();
             for (Request* r : batch) {
@@ -272,12 +303,14 @@ void TorchEvaluator::run() {
             for (Request* r : batch) {
                 r->done = true;
             }
+            in_flight_ -= static_cast<int>(batch.size());
             ++stats_.batches;
             stats_.graph_batches += replayed ? 1 : 0;
             stats_.positions += static_cast<long long>(batch.size());
             stats_.gpu_seconds += secs;
         }
         done_.notify_all();
+        queued_.notify_all();  // fewer in flight: another batcher's batch may now be full
         log_stats();
     }
 }
@@ -304,7 +337,7 @@ void fill(const Requests& batch, std::int64_t tiles, const std::vector<torch::Te
 
 }  // namespace
 
-bool TorchEvaluator::forward(std::vector<Request*>& batch) {
+bool TorchEvaluator::forward(Pipeline& p, std::vector<Request*>& batch) {
     const auto n = static_cast<std::int64_t>(batch.size());
     const std::int64_t t = static_cast<std::int64_t>(side_) * side_;
     std::int64_t k = 0;
@@ -313,23 +346,23 @@ bool TorchEvaluator::forward(std::vector<Request*>& batch) {
     }
     const torch::InferenceMode guard;
     const auto graph =
-        std::ranges::find_if(impl_->graphs, [n](const CapturedGraph& g) { return g.batch >= n; });
-    const bool replay = graph != impl_->graphs.end() && k <= kGraphEdges;
+        std::ranges::find_if(p.graphs, [n](const CapturedGraph& g) { return g.batch >= n; });
+    const bool replay = graph != p.graphs.end() && k <= kGraphEdges;
     torch::Tensor logits;  // [n, stride] on the host
     torch::Tensor values;
     if (replay) {
         // Pinned staging -> the graph's static inputs (rows past n hold stale but valid data whose
         // outputs are never read), replay, outputs -> pinned host; one synchronisation.
-        fill(batch, t, impl_->staging);
-        for (std::size_t i = 0; i < impl_->staging.size(); ++i) {
-            graph->in[i].narrow(0, 0, n).copy_(impl_->staging[i].narrow(0, 0, n), true);
+        fill(batch, t, p.staging);
+        for (std::size_t i = 0; i < p.staging.size(); ++i) {
+            graph->in[i].narrow(0, 0, n).copy_(p.staging[i].narrow(0, 0, n), true);
         }
         graph->graph->replay();
-        impl_->out_logits.narrow(0, 0, n).copy_(graph->logits.narrow(0, 0, n), true);
-        impl_->out_value.narrow(0, 0, n).copy_(graph->value.narrow(0, 0, n), true);
+        p.out_logits.narrow(0, 0, n).copy_(graph->logits.narrow(0, 0, n), true);
+        p.out_value.narrow(0, 0, n).copy_(graph->value.narrow(0, 0, n), true);
         c10::cuda::getCurrentCUDAStream().synchronize();
-        logits = impl_->out_logits;
-        values = impl_->out_value;
+        logits = p.out_logits;
+        values = p.out_value;
     } else {
         std::vector<torch::Tensor> host = zero_inputs(n, t, k, torch::kCPU);
         fill(batch, t, host);

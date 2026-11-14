@@ -2,9 +2,12 @@
 
 // The network as a PUCT leaf evaluator (ADR-012 §1): a TorchScript module exported by nn/export.py,
 // run by LibTorch on the GPU in batches across threads. Each search thread calls evaluate(), which
-// queues its request and blocks; one batcher thread takes up to `max_batch` queued requests, runs
-// the network once and wakes them. It runs a batch as soon as min(max_batch, searching threads)
-// requests wait (threads inside begin_search/end_search), or after `max_wait_us` with fewer.
+// queues its request and blocks; a batcher thread takes up to `max_batch` queued requests, runs
+// the network once and wakes them. It runs a batch as soon as min(max_batch, searching threads not
+// already in another batch) requests wait (threads inside begin_search/end_search), or after
+// `max_wait_us` with fewer. With `pipelines` > 1 there are that many batchers, each with its own
+// CUDA stream and graphs, so one batch's game threads search while another batch is on the GPU
+// (notebook 2026-11-14: with one, the CPU and the GPU take turns).
 // Built only with POLY_TORCH (CMake), so CI and the plain build need no LibTorch.
 
 #include <atomic>
@@ -27,18 +30,18 @@ struct EvaluatorStats {
     long long batches = 0;
     long long positions = 0;
     long long graph_batches = 0;     // of `batches`, those replayed from a CUDA graph
-    double gpu_seconds = 0.0;        // forward passes incl. transfers, measured by the batcher
-    double fill_wait_seconds = 0.0;  // the batcher waiting for a batch to fill (up to max_wait)
+    double gpu_seconds = 0.0;        // forward passes incl. transfers, summed over the batchers
+    double fill_wait_seconds = 0.0;  // batchers waiting for a batch to fill (up to max_wait), summed
 };
 
 class TorchEvaluator final : public search::LeafEvaluator {
    public:
     // `model`: a TorchScript file from nn/export.py for maps of this `side`. `cuda`: false runs on
     // the CPU (tests). `cuda_graphs`: capture the module as CUDA graphs for batch sizes 8, 16, 32,
-    // ... and max_batch, and replay those (padded) instead of plain calls. Throws if the file
-    // can't be loaded.
+    // ... and max_batch, and replay those (padded) instead of plain calls. `pipelines`: batcher
+    // threads (see above). Throws if the file can't be loaded.
     TorchEvaluator(const std::string& model, int side, int max_batch, int max_wait_us,
-                   bool cuda = true, bool cuda_graphs = true);
+                   bool cuda = true, bool cuda_graphs = true, int pipelines = 1);
     ~TorchEvaluator() override;
     TorchEvaluator(const TorchEvaluator&) = delete;
     TorchEvaluator& operator=(const TorchEvaluator&) = delete;
@@ -58,9 +61,10 @@ class TorchEvaluator final : public search::LeafEvaluator {
 
    private:
     struct Request;
-    void run();
-    void log_stats();  // every POLY_EVAL_LOG seconds (env), from the batcher thread
-    bool forward(std::vector<Request*>& batch);  // true if it replayed a CUDA graph
+    struct Pipeline;
+    void run(Pipeline& p);
+    void log_stats();  // every POLY_EVAL_LOG seconds (env), from a batcher thread
+    bool forward(Pipeline& p, std::vector<Request*>& batch);  // true if it replayed a CUDA graph
 
     struct Impl;  // LibTorch types stay out of this header
     std::unique_ptr<Impl> impl_;
@@ -72,12 +76,13 @@ class TorchEvaluator final : public search::LeafEvaluator {
     std::condition_variable done_;    // callers wait for their results
     std::deque<Request*> queue_;
     int searching_ = 0;  // threads between begin_search and end_search
+    int in_flight_ = 0;  // requests taken by a batcher and not yet done
     bool stop_ = false;
     EvaluatorStats stats_;
     int log_every_s_ = 0;
     std::chrono::steady_clock::time_point started_;
     std::chrono::steady_clock::time_point last_log_;
-    std::thread batcher_;
+    std::vector<std::thread> batchers_;
 };
 
 }  // namespace poly::selfplay

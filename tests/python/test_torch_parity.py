@@ -43,15 +43,19 @@ def random_record(path: Path, n: int, side: int) -> None:
     path.write_bytes(bytes(out))
 
 
-@pytest.mark.parametrize("threads,batch,graphs", [(1, 1, 0), (8, 64, 0), (16, 7, 0), (1, 1, 1), (8, 64, 1),
-                                                  (16, 7, 1), (40, 32, 1)])
-def test_cpp_matches_pytorch(tmp_path: Path, threads: int, batch: int, graphs: int):
+@pytest.mark.parametrize("threads,batch,graphs,pipelines", [(1, 1, 0, 1), (8, 64, 0, 1), (16, 7, 0, 1), (1, 1, 1, 1),
+                                                            (8, 64, 1, 1), (16, 7, 1, 1), (40, 32, 1, 1),
+                                                            # several batchers: each request answered with
+                                                            # its own row while batches overlap
+                                                            (40, 8, 1, 2), (64, 16, 1, 3), (16, 7, 0, 2)])
+def test_cpp_matches_pytorch(tmp_path: Path, threads: int, batch: int, graphs: int, pipelines: int):
     side = 11
     model = tmp_path / "net.ts"
     export.export(export.build("random", side, 32, 2), side, str(model))
     rec = tmp_path / "g.rec"
     random_record(rec, 48, side)
-    run = subprocess.run([str(NET_CHECK), str(model), str(rec), "48", str(threads), str(batch), str(graphs)],
+    run = subprocess.run([str(NET_CHECK), str(model), str(rec), "48", str(threads), str(batch), str(graphs),
+                          str(pipelines)],
                          capture_output=True, text=True, check=True)
     out = run.stdout.splitlines()
     replayed = int(run.stderr.split(" batches, ")[1].split()[0])

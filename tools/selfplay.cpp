@@ -4,12 +4,13 @@
 // row in <out>/games.csv; rerunning the same command skips games whose record exists (resumable).
 //
 // With --net=<model.ts> (a build with POLY_TORCH; nn/export.py) the agents search with the network
-// (ADR-011 §2), batched across the --jobs game threads (--batch, --wait-us); evaluator statistics
+// (ADR-011 §2), batched across the --jobs game threads (--batch, --wait-us, --pipelines batchers
+// that overlap; TorchEvaluator); evaluator statistics
 // are printed at the end.
 //
 // Usage: selfplay --levels=<dir> --games=<N> --out=<dir> [--agent=PUCT[:k=v:..]] [--id=<id>]
 //                 [--obs=alternate|full|partial] [--jobs=<N>] [--net=<model.ts>] [--batch=<B>]
-//                 [--wait-us=<W>]
+//                 [--wait-us=<W>] [--pipelines=<P>]
 
 #include <algorithm>
 #include <array>
@@ -66,6 +67,7 @@ struct Options {
     std::string net;  // TorchScript model, or empty: the Phase 3 agent
     int batch = 256;
     int wait_us = 2000;
+    int pipelines = 1;
 };
 
 const char* result_of_tribe0(const poly::search::MatchResult& r) {
@@ -208,12 +210,13 @@ int main(int argc, char** argv) {
         o.net = opt(args, "net", "");
         o.batch = std::stoi(opt(args, "batch", "256"));
         o.wait_us = std::stoi(opt(args, "wait-us", "2000"));
+        o.pipelines = std::stoi(opt(args, "pipelines", "1"));
         if (o.net.empty()) {
             return run(o, nullptr);
         }
 #ifdef POLY_TORCH
         const int side = polytools::load_level_file(o.levels.front()).state.side;
-        poly::selfplay::TorchEvaluator eval(o.net, side, o.batch, o.wait_us);
+        poly::selfplay::TorchEvaluator eval(o.net, side, o.batch, o.wait_us, true, true, o.pipelines);
         const auto t0 = std::chrono::steady_clock::now();
         const int rc = run(o, &eval);
         const double secs =
