@@ -6,14 +6,15 @@
 #
 # Usage (repo root): tools/sprt_run.sh <name> <agent A> <agent B> [levels dir] [obs] [jobs]
 #   defaults: build/levels/dev, partial (the Fog condition), 8 jobs. Log: data/results/sprt-<name>.log
+#   TOURNAMENT=<binary> overrides build/release/tournament (network agents: build/torch/tournament, make build-nn)
 set -euo pipefail
 name=$1 a=$2 b=$3 levels=${4:-build/levels/dev} obs=${5:-partial} jobs=${6:-8}
 log=data/results/sprt-$name.log
 test -d "$levels" || { echo "sprt_run: no levels in $levels (make tournament SEEDS=... exports them)" >&2; exit 1; }
-echo "sprt $name: A=$a B=$b levels=$levels obs=$obs git $(git rev-parse --short HEAD)$(git diff --quiet || echo -dirty)" >> "$log"
+echo "sprt $name: A=$a B=$b levels=$levels obs=$obs git $(git rev-parse --short HEAD)$(git diff --quiet || echo -dirty) bin ${TOURNAMENT:-build/release/tournament}" >> "$log"
 for k in $(seq 1 100); do
     id=sprt-$name-b$k
-    build/release/tournament --levels="$levels" --agents="$a,$b" --reps=1 --obs="$obs" --id="$id" \
+    "${TOURNAMENT:-build/release/tournament}" --levels="$levels" --agents="$a,$b" --reps=1 --obs="$obs" --id="$id" \
         --out="data/results/$id.csv" --jobs="$jobs" > /dev/null
     set +e
     .venv/bin/python tools/sprt.py "$a" "$b" data/results/sprt-"$name"-b*.csv >> "$log"

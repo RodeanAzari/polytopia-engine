@@ -471,8 +471,10 @@ poly::GameState record_random(polytools::LevelFile& f, Recorder& rec) {
 // `game_seed`; returns the final state and prints the result as a CSV row would show it.
 poly::GameState record_match(const polytools::LevelFile& f, const Options& o,
                              std::uint64_t game_seed, Recorder& rec) {
-    Watched a0(polytools::make_agent(o.agents[0], polytools::agent_seed(game_seed, 0)));
-    Watched a1(polytools::make_agent(o.agents[1], polytools::agent_seed(game_seed, 1)));
+    Watched a0(
+        polytools::make_agent(o.agents[0], polytools::agent_seed(game_seed, 0), f.state.side));
+    Watched a1(
+        polytools::make_agent(o.agents[1], polytools::agent_seed(game_seed, 1), f.state.side));
     std::array<Watched*, 2> watched = {&a0, &a1};
     const std::array<poly::search::Agent*, 2> seats = {&a0, &a1};
     poly::GameState before = f.state;

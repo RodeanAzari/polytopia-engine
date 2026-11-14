@@ -20,10 +20,11 @@ setup-nn:
 	cmp $(CUDNN_PIP)/libcudnn.so.9 $(LIBTORCH)/lib/libcudnn.so.9
 	for f in $(CUDNN_PIP)/libcudnn_*.so.9; do ln -sf $$f $(LIBTORCH)/lib/; done
 
-# The build with the LibTorch evaluator (selfplay --net, net_check) in build/torch.
+# The build with the LibTorch evaluator (selfplay --net, net_check, tournament with
+# PUCT:...:net=<model.ts> agents) in build/torch.
 build-nn:
 	cmake -S . -B build/torch $(GEN) -DCMAKE_BUILD_TYPE=Release -DPOLY_TORCH=ON
-	cmake --build build/torch -j$(JOBS) --target selfplay net_check
+	cmake --build build/torch -j$(JOBS) --target selfplay net_check tournament
 
 # Tribes is unlicensed: cloned locally at a pinned commit, never committed (ADR-002).
 setup:

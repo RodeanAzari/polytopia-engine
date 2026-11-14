@@ -135,8 +135,9 @@ std::string play(const Options& o, const Game& g) {
                                                    static_cast<std::uint64_t>(g.rep));
     auto level = polytools::load_level_file(
         g.level_path, o.partial ? poly::ObsMode::Partial : poly::ObsMode::Full);
-    const auto a0 = polytools::make_agent(g.agent0, polytools::agent_seed(game_seed, 0));
-    const auto a1 = polytools::make_agent(g.agent1, polytools::agent_seed(game_seed, 1));
+    const int side = level.state.side;
+    const auto a0 = polytools::make_agent(g.agent0, polytools::agent_seed(game_seed, 0), side);
+    const auto a1 = polytools::make_agent(g.agent1, polytools::agent_seed(game_seed, 1), side);
     const std::array<poly::search::Agent*, 2> seats = {a0.get(), a1.get()};
     const auto t0 = std::chrono::steady_clock::now();
     const auto r = poly::search::play_match(level.state, seats, game_seed);
@@ -207,7 +208,7 @@ int main(int argc, char** argv) {
         o.partial = opt(args, "obs", "full") == "partial";
         o.jobs = std::stoi(opt(args, "jobs", "4"));
         for (const std::string& a : o.agents) {
-            (void)polytools::make_agent(a, 0);  // unknown names fail before any game
+            polytools::check_agent(a);  // unknown names fail before any game
         }
         return run(o);
     } catch (const std::exception& e) {

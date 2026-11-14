@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "search/agent.hpp"
 #include "search/mc.hpp"
@@ -18,6 +19,12 @@
 #include "search/random_agent.hpp"
 #include "search/rhea.hpp"
 #include "search/rule_based.hpp"
+#ifdef POLY_TORCH
+#include <map>
+#include <mutex>
+
+#include "selfplay/torch_evaluator.hpp"
+#endif
 
 namespace polytools {
 
@@ -33,8 +40,58 @@ inline std::uint64_t agent_seed(std::uint64_t game_seed, int seat) {
     return mix(game_seed, static_cast<std::uint64_t>(seat) + 1);
 }
 
-inline std::unique_ptr<poly::search::Agent> make_agent(const std::string& name,
-                                                       std::uint64_t seed) {
+// "PUCT:...:net=<model.ts>" (ADR-011 §2): `name` without the net item, and the model path ("" if
+// none). The net item may be anywhere in the spec.
+inline std::pair<std::string, std::string> split_net(const std::string& name) {
+    const std::size_t at = name.find("net=");
+    if (at == std::string::npos) {
+        return {name, ""};
+    }
+    const std::size_t end = name.find(':', at);
+    std::string model =
+        name.substr(at + 4, end == std::string::npos ? std::string::npos : end - at - 4);
+    std::string rest = name.substr(0, at) + (end == std::string::npos ? "" : name.substr(end + 1));
+    if (rest.ends_with(':')) {
+        rest.pop_back();
+    }
+    return {rest, model};
+}
+
+#ifdef POLY_TORCH
+// One batched evaluator per (model, side), shared by every game of the process (ADR-012 §1).
+inline poly::search::LeafEvaluator* shared_evaluator(const std::string& model, int side) {
+    static std::mutex mu;
+    static std::map<std::pair<std::string, int>, std::unique_ptr<poly::selfplay::TorchEvaluator>>
+        evaluators;
+    const std::scoped_lock lock(mu);
+    auto& e = evaluators[{model, side}];
+    if (!e) {
+        e = std::make_unique<poly::selfplay::TorchEvaluator>(model, side, 64, 1000);
+    }
+    return e.get();
+}
+#endif
+
+// `side`: the map side, which network agents need (their evaluator is built for it).
+inline std::unique_ptr<poly::search::Agent> make_agent(const std::string& full_name,
+                                                       std::uint64_t seed, int side = 0) {
+    const auto [name, model] = split_net(full_name);
+    poly::search::LeafEvaluator* net = nullptr;
+    if (!model.empty()) {
+        if (name != "PUCT" && !name.starts_with("PUCT:")) {
+            throw std::runtime_error("only PUCT agents take net=: " + full_name);
+        }
+#ifdef POLY_TORCH
+        if (side <= 0) {
+            throw std::runtime_error("a network agent needs the map side: " + full_name);
+        }
+        net = shared_evaluator(model, side);
+#else
+        (void)side;
+        throw std::runtime_error("net= needs a build with POLY_TORCH (make build-nn): " +
+                                 full_name);
+#endif
+    }
     if (name == "Random") {
         return std::make_unique<poly::search::RandomAgent>(seed);
     }
@@ -56,10 +113,21 @@ inline std::unique_ptr<poly::search::Agent> make_agent(const std::string& name,
     if (name == "PUCT" || name.starts_with("PUCT:")) {  // ours, ADR-008; e.g. PUCT:c=1.5:vision=own
         const std::string_view spec =
             name.size() > 5 ? std::string_view(name).substr(5) : std::string_view{};
-        return std::make_unique<poly::search::PuctAgent>(seed,
-                                                         poly::search::parse_puct_params(spec));
+        return std::make_unique<poly::search::PuctAgent>(
+            seed, poly::search::parse_puct_params(spec), net);
     }
     throw std::runtime_error("unknown agent: " + name);
+}
+
+// Throws if `name` is not an agent make_agent can build (a network agent's model isn't loaded).
+inline void check_agent(const std::string& name) {
+    const auto [base, model] = split_net(name);
+#ifndef POLY_TORCH
+    if (!model.empty()) {
+        throw std::runtime_error("net= needs a build with POLY_TORCH (make build-nn): " + name);
+    }
+#endif
+    (void)make_agent(base, 0);
 }
 
 }  // namespace polytools
