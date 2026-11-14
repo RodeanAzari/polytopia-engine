@@ -3,10 +3,11 @@
 distribution + MSE to the game result, L2 by weight decay. Games are split train/validation by game number
 (the last --val-games games validate), so no validation position shares a game with training.
 
-Writes <out>/step-<k>.pt checkpoints ({"model", "channels", "blocks", "side", "features_version", "step"}) and
+Loss = policy + --value-weight x value. Writes <out>/best.pt (the evaluation with the lowest validation loss, by the
+same weighting: with few games the value head memorises them, notebook 2026-11-13), <out>/step-<k>.pt checkpoints ({"model", "channels", "blocks", "side", "features_version", "step"}) and
 <out>/log.csv (step, seconds, train losses, validation losses and policy top-1 agreement with the search).
 Usage: train.py <packed dir> <out dir> [--steps 20000] [--batch 256] [--lr 0.02] [--channels 64] [--blocks 6]
-                [--val-games 100] [--eval-every 1000] [--seed 1]
+                [--val-games 100] [--eval-every 1000] [--seed 1] [--value-weight 1.0]
 """
 
 from __future__ import annotations
@@ -92,6 +93,7 @@ def main() -> int:
     ap.add_argument("--val-games", type=int, default=100)
     ap.add_argument("--eval-every", type=int, default=1000)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--value-weight", type=float, default=1.0)
     a = ap.parse_args()
 
     torch.manual_seed(a.seed)
@@ -116,12 +118,13 @@ def main() -> int:
                 "val_top1"])
     t0 = time.time()
     run = np.zeros(3)
+    best = float("inf")
     for step in range(1, a.steps + 1):
         b = data.batch(rng.choice(train_idx, a.batch, replace=False), device)
         with torch.autocast(device.type, dtype=torch.float16, enabled=device.type == "cuda"):
             lp, lv, agree = losses(net, b, data.side)
         opt.zero_grad(set_to_none=True)
-        scaler.scale(lp + lv).backward()
+        scaler.scale(lp + a.value_weight * lv).backward()
         scaler.step(opt)
         scaler.update()
         sched.step()
@@ -134,8 +137,12 @@ def main() -> int:
             log.flush()
             print(" ".join(map(str, row)), flush=True)
             run[:] = 0
-            torch.save({"model": net.state_dict(), "channels": a.channels, "blocks": a.blocks, "side": data.side,
-                        "features_version": FEATURES_VERSION, "step": step}, a.out / f"step-{step}.pt")
+            ck = {"model": net.state_dict(), "channels": a.channels, "blocks": a.blocks, "side": data.side,
+                  "features_version": FEATURES_VERSION, "step": step, "val": [float(x) for x in val]}
+            torch.save(ck, a.out / f"step-{step}.pt")
+            if val[0] + a.value_weight * val[1] < best:
+                best = val[0] + a.value_weight * val[1]
+                torch.save(ck, a.out / "best.pt")
     return 0
 
 

@@ -143,13 +143,17 @@ TEST(PuctParams, ParsesTheRunnerSpec) {  // A/B variants (ADR-007 §5)
     EXPECT_FALSE(parse_puct_params("macro=0").macro);
     EXPECT_EQ(d.budget, 2000);  // ADR-007 §4
     EXPECT_EQ(parse_puct_params("budget=400").budget, 400);
+    EXPECT_TRUE(d.net_value);  // ADR-011 §2
+    EXPECT_FALSE(parse_puct_params("leaf=diff").net_value);
+    EXPECT_TRUE(parse_puct_params("leaf=diff:leaf=net").net_value);
 }
 
 TEST(PuctParams, RejectsBadSpecs) {
     for (const char* bad :
-         {"c",           "c=",         "c=x",      "c=0",        "c=-1",     "T=1.5x",   "T=inf",
-          "vision=mine", "K=9",        "K=-1",     "K=2.5",      "k=1",      "c=1,T=2",  "macro=2",
-          "macro=",      "macro=true", "budget=0", "budget=1.5", "budget=x", "budget=-3"}) {
+         {"c",        "c=",          "c=x",    "c=0",        "c=-1",     "T=1.5x",
+          "T=inf",    "vision=mine", "K=9",    "K=-1",       "K=2.5",    "k=1",
+          "c=1,T=2",  "macro=2",     "macro=", "macro=true", "budget=0", "budget=1.5",
+          "budget=x", "budget=-3",   "leaf=",  "leaf=value"}) {
         EXPECT_TRUE(rejects(bad)) << bad;
     }
 }

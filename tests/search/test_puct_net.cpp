@@ -18,6 +18,7 @@
 #include "poly/level.hpp"
 #include "poly/observation.hpp"
 #include "poly/rules.hpp"
+#include "search/diff_heuristic.hpp"
 #include "search/leaf_eval.hpp"
 #include "search/puct.hpp"
 
@@ -179,6 +180,31 @@ TEST(PuctNet, FinishedGamesHoldTheirExactResult) {
     }
     EXPECT_GT(terminals, 0);
     EXPECT_EQ(tree_problem(agent, net, net.calls), "");
+}
+
+TEST(PuctNet, DiffLeafKeepsTheNetworksPriorsButNotItsValue) {
+    // leaf=diff: priors from the network, values from the Diff heuristic vs. the root (ADR-008 §4)
+    // in the searching player's own vision, computed here from each node's state.
+    const GameState s = two_tribes(poly::ObsMode::Full);
+    FakeNet net;
+    PuctAgent agent(3, {.determinizations = 0, .macro = false, .budget = 200, .net_value = false},
+                    &net);
+    (void)agent.act(poly::observe(s, 0), legal(s));
+    ASSERT_GT(net.calls.size(), 0U);
+    std::size_t c = 0;
+    for (std::size_t i = 0; i < agent.nodes().size(); ++i) {
+        const poly::search::PuctNode& n = agent.nodes()[i];
+        if (n.terminal) {
+            continue;
+        }
+        const auto want = net.expected_priors(net.calls[c++].actions);
+        for (std::size_t k = 0; k < want.size(); ++k) {
+            ASSERT_NEAR(agent.edges(n)[k].prior, want[k], 1e-12) << "node " << i;
+        }
+        EXPECT_EQ(n.value, poly::search::diff_heuristic(agent.state(0), agent.state(i), 0,
+                                                        poly::search::DiffVision::Player))
+            << "node " << i;
+    }
 }
 
 TEST(PuctNet, ThePriorSteersTheSearch) {

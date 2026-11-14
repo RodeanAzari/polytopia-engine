@@ -50,14 +50,18 @@ struct PuctParams {
     DiffVision vision = DiffVision::Player;  // ADR-008 §8: SPRT 1 (own vision beat Tribes' Diff)
     int determinizations = 4;  // ADR-009 K (0 = the observation); 4 by SPRT 2, ADR-008 §8
     bool macro = true;  // ADR-010 (goal-directed moves, pruned actions); by SPRT 3, ADR-008 §8
-    int budget =
-        2000;  // forward-model calls per decision: ADR-007 §4; self-play may use fewer (ADR-012)
+    // Forward-model calls per decision: ADR-007 §4; self-play may use fewer (ADR-012).
+    int budget = 2000;
+    // With a network: true = its value at the leaves (ADR-011 §2), false = the network's priors
+    // with the Diff leaf (a bootstrap variant while the value head can't generalise; notebook
+    // 2026-11-13).
+    bool net_value = true;
 };
 
 // Agent variants for A/B runs (ADR-007 §5), as the tournament runner names them after "PUCT:": ""
 // (the defaults) or key=value items separated by ':' (agent lists and CSV fields use ','):
-// c=<double>, T=<double>, vision=active|own, K=0..8, macro=0|1, budget=<int>. Throws on anything
-// else (unknown key, bad value, c, T or budget not positive).
+// c=<double>, T=<double>, vision=active|own, K=0..8, macro=0|1, budget=<int>, leaf=net|diff.
+// Throws on anything else (unknown key, bad value, c, T or budget not positive).
 PuctParams parse_puct_params(std::string_view spec);
 
 // ADR-008 §3: p_i = exp((s_i − max s)/T) / Σ exp((s_j − max s)/T). `out` gets one prior per score.

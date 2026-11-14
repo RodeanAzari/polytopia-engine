@@ -91,6 +91,8 @@ PuctParams parse_puct_params(std::string_view spec) {
         if (key == "c" || key == "T") {
             const double v = positive(key, value);
             (key == "c" ? p.c : p.temperature) = v;
+        } else if (key == "leaf" && (value == "net" || value == "diff")) {
+            p.net_value = value == "net";
         } else if (key == "budget") {
             p.budget = whole(key, value);
         } else if (key == "K" && (value.size() == 1 && value[0] >= '0' && value[0] <= '8')) {
@@ -148,7 +150,7 @@ std::int32_t PuctAgent::add_node(std::int32_t parent, std::int32_t parent_edge,
             }
         }
         if (net_ != nullptr) {
-            n.value = net_priors(o, actions);
+            n.value = net_priors(o, actions);  // replaced below by Diff with leaf=diff
         } else {
             kept_scores_.clear();
             for (const std::size_t i : keep_) {
@@ -163,7 +165,7 @@ std::int32_t PuctAgent::add_node(std::int32_t parent, std::int32_t parent_edge,
         }
     }
     nodes_.push_back(n);
-    if (net_ == nullptr || n.terminal) {
+    if (net_ == nullptr || !params_.net_value || n.terminal) {
         nodes_.back().value = evaluate(index);
     }
     return index;
@@ -189,7 +191,7 @@ double PuctAgent::net_priors(const Observation& o, std::span<const Action> actio
 // ADR-007 §3) / -1, on the network's value scale.
 double PuctAgent::evaluate(std::int32_t node) const {
     const GameState& s = states_[static_cast<std::size_t>(node)];
-    if (net_ != nullptr) {
+    if (net_ != nullptr && params_.net_value) {
         if (s.ranking_tied) {
             return 0.0;
         }
