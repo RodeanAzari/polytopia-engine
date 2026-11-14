@@ -27,8 +27,9 @@ Bootstrap done: 2,000 games, 1.39 M decisions (`data/selfplay/bootstrap`); nets 
 `data/nets/` (notebook). Batcher fix `0b723cb` (batch runs when every searching thread waits).
 Pilot SPRT (dev, Fog, vs. PUCT): `PUCT:net=data/nets/boot-vw1-s3000.ts` H1 accepted, +96 Elo (+55 to +141),
 100 pairs (notebook 2026-11-14). `leaf=diff` SPRT stopped at b2 47/200 (resumable).
-Running (stage 2, since 2026-11-14 11:29): gen1 self-play, 2,000 games with the net on both sides, ~40 games/h
-estimated (~50 h); command in notebook 2026-11-14 (rerun to resume; 64 jobs, not 96). Then: train on
+Running (stage 2, since 2026-11-14 11:29): gen1 self-play, 2,000 games with the net on both sides; 79 done at
+14:21, ~42 games/h estimated (~46 h left); runs detached (`setsid nohup`, pgrep "selfplay --levels"); command in
+notebook 2026-11-14 (rerun to resume; 64 jobs, not 96). Portfolio moment (pilot SPRT) listed, awaiting the user. Then: train on
 bootstrap + gen1, SPRT gen1 net vs. boot net. Never two GPU processes at once.
 Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning. Untried: leaf value form, tree reuse, Gumbel.
 Trap: Claude Code kills idle background runs under system memory pressure (4× on 2026-11-12/13; other
