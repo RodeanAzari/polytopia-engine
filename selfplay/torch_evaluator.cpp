@@ -41,6 +41,11 @@ struct TorchEvaluator::Impl {
     torch::jit::Module module;
     torch::Device device{torch::kCPU};
     std::vector<CapturedGraph> graphs;  // ascending batch sizes; empty: plain calls only
+    // Graph path: pinned host staging for the inputs (max_batch rows, kGraphEdges edges) and the
+    // outputs, so the copies are asynchronous and a batch synchronises once (notebook 2026-11-13).
+    std::vector<torch::Tensor> staging;
+    torch::Tensor out_logits;
+    torch::Tensor out_value;
 };
 
 struct TorchEvaluator::Request {
@@ -117,6 +122,13 @@ TorchEvaluator::TorchEvaluator(const std::string& model, int side, int max_batch
             impl_->graphs.push_back(capture(impl_->module, b, tiles, impl_->device));
         }
         impl_->graphs.push_back(capture(impl_->module, max_batch, tiles, impl_->device));
+        impl_->staging = zero_inputs(max_batch, tiles, kGraphEdges, torch::kCPU);
+        for (torch::Tensor& h : impl_->staging) {
+            h = h.pin_memory();
+        }
+        const auto pinned = torch::TensorOptions().dtype(torch::kFloat32).pinned_memory(true);
+        impl_->out_logits = torch::zeros({max_batch, kGraphEdges}, pinned);
+        impl_->out_value = torch::zeros({max_batch}, pinned);
     }
     batcher_ = std::thread([this] { run(); });
 }
@@ -222,6 +234,28 @@ void TorchEvaluator::run() {
     }
 }
 
+namespace {
+
+// Writes the batch's inputs into rows 0..n of host tensors (fields, flags, scalars, global, edges);
+// edges get each request's own count, the rest of a row is left as it was.
+template <typename Requests>
+void fill(const Requests& batch, std::int64_t tiles, const std::vector<torch::Tensor>& host) {
+    for (std::size_t i = 0; i < batch.size(); ++i) {
+        const auto row = static_cast<std::int64_t>(i);
+        const Features& f = *batch[i]->features;
+        const auto e = batch[i]->edges;
+        std::memcpy(host[0][row].data_ptr(), f.fields.data(),
+                    static_cast<std::size_t>(tiles) * field::kCount);
+        std::memcpy(host[1][row].data_ptr(), f.flags.data(), static_cast<std::size_t>(tiles));
+        std::memcpy(host[2][row].data_ptr(), f.scalars.data(),
+                    static_cast<std::size_t>(tiles) * scalar::kCount * sizeof(float));
+        std::memcpy(host[3][row].data_ptr(), f.global.data(), sizeof(f.global));
+        std::memcpy(host[4][row].data_ptr(), e.data(), e.size() * sizeof(std::int64_t));
+    }
+}
+
+}  // namespace
+
 bool TorchEvaluator::forward(std::vector<Request*>& batch) {
     const auto n = static_cast<std::int64_t>(batch.size());
     const std::int64_t t = static_cast<std::int64_t>(side_) * side_;
@@ -229,58 +263,43 @@ bool TorchEvaluator::forward(std::vector<Request*>& batch) {
     for (const Request* r : batch) {
         k = std::max(k, static_cast<std::int64_t>(r->edges.size()));
     }
-    auto fields = torch::empty({n, t, field::kCount}, torch::kUInt8);
-    auto flags = torch::empty({n, t}, torch::kUInt8);
-    auto scalars = torch::empty({n, t, scalar::kCount}, torch::kFloat32);
-    auto global = torch::empty({n, gfeat::kSize}, torch::kFloat32);
-    auto edges = torch::zeros({n, k}, torch::kInt64);
-    for (std::int64_t i = 0; i < n; ++i) {
-        const Request& r = *batch[static_cast<std::size_t>(i)];
-        const Features& f = *r.features;
-        std::memcpy(fields[i].data_ptr(), f.fields.data(),
-                    static_cast<std::size_t>(t) * field::kCount);
-        std::memcpy(flags[i].data_ptr(), f.flags.data(), static_cast<std::size_t>(t));
-        std::memcpy(scalars[i].data_ptr(), f.scalars.data(),
-                    static_cast<std::size_t>(t) * scalar::kCount * sizeof(float));
-        std::memcpy(global[i].data_ptr(), f.global.data(), sizeof(f.global));
-        std::memcpy(edges[i].data_ptr(), r.edges.data(), r.edges.size() * sizeof(std::int64_t));
-    }
-    const torch::Device d = impl_->device;
     const torch::InferenceMode guard;
-    torch::Tensor logits;
-    torch::Tensor values;
     const auto graph =
         std::ranges::find_if(impl_->graphs, [n](const CapturedGraph& g) { return g.batch >= n; });
     const bool replay = graph != impl_->graphs.end() && k <= kGraphEdges;
+    torch::Tensor logits;  // [n, stride] on the host
+    torch::Tensor values;
     if (replay) {
-        // Copy into the graph's static inputs (rows past n keep zeros from an earlier batch or
-        // stale rows: their outputs are never read), replay, read the first n rows.
-        const std::vector<torch::Tensor> host = {fields, flags, scalars, global, edges};
-        for (std::size_t i = 0; i < host.size(); ++i) {
-            auto dst = graph->in[i].narrow(0, 0, n);
-            if (i == host.size() - 1) {
-                dst = dst.narrow(1, 0, k);
-            }
-            dst.copy_(host[i]);
+        // Pinned staging -> the graph's static inputs (rows past n hold stale but valid data whose
+        // outputs are never read), replay, outputs -> pinned host; one synchronisation.
+        fill(batch, t, impl_->staging);
+        for (std::size_t i = 0; i < impl_->staging.size(); ++i) {
+            graph->in[i].narrow(0, 0, n).copy_(impl_->staging[i].narrow(0, 0, n), true);
         }
         graph->graph->replay();
-        logits = graph->logits.narrow(0, 0, n).narrow(1, 0, k).to(torch::kCPU).contiguous();
-        values = graph->value.narrow(0, 0, n).to(torch::kCPU).contiguous();
+        impl_->out_logits.narrow(0, 0, n).copy_(graph->logits.narrow(0, 0, n), true);
+        impl_->out_value.narrow(0, 0, n).copy_(graph->value.narrow(0, 0, n), true);
+        c10::cuda::getCurrentCUDAStream().synchronize();
+        logits = impl_->out_logits;
+        values = impl_->out_value;
     } else {
-        const std::vector<torch::jit::IValue> in = {fields.to(d), flags.to(d), scalars.to(d),
-                                                    global.to(d), edges.to(d)};
+        std::vector<torch::Tensor> host = zero_inputs(n, t, k, torch::kCPU);
+        fill(batch, t, host);
+        const torch::Device d = impl_->device;
+        const std::vector<torch::jit::IValue> in = {host[0].to(d), host[1].to(d), host[2].to(d),
+                                                    host[3].to(d), host[4].to(d)};
         const auto out = impl_->module.forward(in).toTuple();
         logits = out->elements()[0].toTensor().to(torch::kCPU).contiguous();
         values = out->elements()[1].toTensor().to(torch::kCPU).contiguous();
     }
-    const float* lp = logits.data_ptr<float>();
-    const float* vp = values.data_ptr<float>();
+    const std::int64_t stride = logits.size(1);
+    const auto lp = std::span(logits.data_ptr<float>(), static_cast<std::size_t>(logits.numel()));
+    const auto vp = std::span(values.data_ptr<float>(), static_cast<std::size_t>(values.numel()));
     for (std::int64_t i = 0; i < n; ++i) {
         Request& r = *batch[static_cast<std::size_t>(i)];
-        const auto row = std::span(lp, static_cast<std::size_t>(n * k))
-                             .subspan(static_cast<std::size_t>(i * k), r.edges.size());
+        const auto row = lp.subspan(static_cast<std::size_t>(i * stride), r.edges.size());
         r.logits->assign(row.begin(), row.end());
-        r.value = std::span(vp, static_cast<std::size_t>(n))[static_cast<std::size_t>(i)];
+        r.value = vp[static_cast<std::size_t>(i)];
     }
     return replay;
 }

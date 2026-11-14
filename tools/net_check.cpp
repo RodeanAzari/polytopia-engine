@@ -5,10 +5,13 @@
 // tests/python/test_torch_parity.py compares these with the exported module run by PyTorch.
 //
 // Usage: net_check <model.ts> <record.rec> <decisions> [threads] [max_batch] [graphs 0|1]
+// (more decisions than the record holds cycle through it, for throughput measurements)
 
+#include <chrono>
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -25,7 +28,11 @@ int main(int argc, char** argv) {
             return 2;
         }
         const auto rec = poly::selfplay::read_record(args[1]);
-        const auto n = std::min<std::size_t>(std::stoul(args[2]), rec.decisions.size());
+        // More decisions than the record has: cycle through it (a throughput benchmark).
+        const auto n = static_cast<std::size_t>(std::stoul(args[2]));
+        if (rec.decisions.empty()) {
+            throw std::runtime_error("record has no decisions");
+        }
         const int threads = args.size() > 3 ? std::stoi(args[3]) : 1;
         const int batch = args.size() > 4 ? std::stoi(args[4]) : 64;
         const bool graphs = args.size() <= 5 || args[5] != "0";
@@ -39,7 +46,7 @@ int main(int argc, char** argv) {
             std::vector<std::int64_t> edges;
             for (auto i = static_cast<std::size_t>(t); i < n;
                  i += static_cast<std::size_t>(threads)) {
-                const auto& d = rec.decisions[i];
+                const auto& d = rec.decisions[i % rec.decisions.size()];
                 f.side = side;
                 std::ranges::copy(d.fields, f.fields.begin());
                 std::ranges::copy(d.flags, f.flags.begin());
@@ -52,6 +59,7 @@ int main(int argc, char** argv) {
                 eval.raw(f, edges, logits[i], values[i]);
             }
         };
+        const auto t0 = std::chrono::steady_clock::now();
         {
             std::vector<std::jthread> pool;
             pool.reserve(static_cast<std::size_t>(threads));
@@ -59,6 +67,8 @@ int main(int argc, char** argv) {
                 pool.emplace_back(work, t);
             }
         }
+        const double secs =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         std::cout << std::setprecision(9);
         for (std::size_t i = 0; i < n; ++i) {
             std::cout << i << ' ' << values[i];
@@ -69,7 +79,9 @@ int main(int argc, char** argv) {
         }
         const auto st = eval.stats();
         std::cerr << "net_check: " << st.positions << " positions in " << st.batches << " batches, "
-                  << st.graph_batches << " from CUDA graphs\n";
+                  << st.graph_batches << " from CUDA graphs; " << secs << " s wall, "
+                  << st.gpu_seconds << " s in forward passes, "
+                  << static_cast<double>(st.positions) / secs << " positions/s\n";
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "net_check: " << e.what() << '\n';
