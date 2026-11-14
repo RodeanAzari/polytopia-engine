@@ -23,10 +23,11 @@ cloud (`docs/compute-plan.md`; the desktop RTX 3060 as a second worker is undeci
 Done: ADR-011 (network; amended: compact features expanded in-model) + ADR-012 (self-play, LibTorch);
 `encode_features` + `network_index`; records (`selfplay/`, `tools/selfplay`, `nn/records.py`); `nn/model.py`,
 `pack.py`, `train.py`; `make selfplay RUN= GAMES=` / `make train RUN= STEPS=`; train seeds `data/seeds/train.txt`.
-Running: bootstrap records, `make selfplay GAMES=2000 JOBS=8` (started 2026-11-13 16:23, ~300 games/h;
-resumable: rerun the same command). C++ inference done (`make setup-nn build-nn`; `selfplay --net=<.ts>`;
-`nn/export.py`; parity test). Next: (1) batcher speed (7.2k evals/s, batcher-bound; notebook), re-measure
-once the recording is done; (2) train on bootstrap (`make train RUN=bootstrap`), compare with RB priors.
+Bootstrap done: 2,000 games, 1.39 M decisions (`data/selfplay/bootstrap`); nets trained and exported to
+`data/nets/` (notebook). Batcher fix `0b723cb` (batch runs when every searching thread waits).
+Running (started 22:25): pilot SPRTs `p4-netprior-diff` (net priors + Diff leaf) and `p4-netprior-netvalue`
+(net priors + value) vs. PUCT, dev, Fog; `TOURNAMENT=build/runs/0b723cb-torch/tournament tools/sprt_run.sh`
+(rerun the same command to resume). Next: read the SPRTs; re-measure self-play throughput with the fix.
 Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning. Untried: leaf value form, tree reuse, Gumbel.
 Trap: Claude Code kills idle background runs under system memory pressure (4× on 2026-11-12/13; other
 sessions); all runners resume, so just rerun (or start Claude Code with CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1).
