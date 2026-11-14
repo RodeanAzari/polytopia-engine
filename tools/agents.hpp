@@ -59,18 +59,43 @@ inline std::pair<std::string, std::string> split_net(const std::string& name) {
 
 #ifdef POLY_TORCH
 // One batched evaluator per (model, side), shared by every game of the process (ADR-012 §1).
+struct SharedEvaluators {
+    std::mutex mu;
+    std::map<std::pair<std::string, int>, std::unique_ptr<poly::selfplay::TorchEvaluator>> map;
+};
+inline SharedEvaluators& shared_evaluators() {
+    static SharedEvaluators s;
+    return s;
+}
+
 inline poly::search::LeafEvaluator* shared_evaluator(const std::string& model, int side) {
-    static std::mutex mu;
-    static std::map<std::pair<std::string, int>, std::unique_ptr<poly::selfplay::TorchEvaluator>>
-        evaluators;
-    const std::scoped_lock lock(mu);
-    auto& e = evaluators[{model, side}];
+    SharedEvaluators& s = shared_evaluators();
+    const std::scoped_lock lock(s.mu);
+    auto& e = s.map[{model, side}];
     if (!e) {
         e = std::make_unique<poly::selfplay::TorchEvaluator>(model, side, 64, 1000);
     }
     return e.get();
 }
 #endif
+
+// Destroys the shared evaluators when it goes out of scope (declare it first in main): as statics
+// they would be destroyed after the CUDA runtime has unloaded, which aborts the process at exit
+// (notebook 2026-11-14). Without POLY_TORCH it does nothing.
+struct SharedEvaluatorsRelease {
+    SharedEvaluatorsRelease() = default;
+    SharedEvaluatorsRelease(const SharedEvaluatorsRelease&) = delete;
+    SharedEvaluatorsRelease& operator=(const SharedEvaluatorsRelease&) = delete;
+    SharedEvaluatorsRelease(SharedEvaluatorsRelease&&) = delete;
+    SharedEvaluatorsRelease& operator=(SharedEvaluatorsRelease&&) = delete;
+    ~SharedEvaluatorsRelease() {
+#ifdef POLY_TORCH
+        SharedEvaluators& s = shared_evaluators();
+        const std::scoped_lock lock(s.mu);
+        s.map.clear();
+#endif
+    }
+};
 
 // `side`: the map side, which network agents need (their evaluator is built for it).
 inline std::unique_ptr<poly::search::Agent> make_agent(const std::string& full_name,

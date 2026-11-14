@@ -192,6 +192,7 @@ int run(const Options& o) {
 }  // namespace
 
 int main(int argc, char** argv) {
+    const polytools::SharedEvaluatorsRelease release;  // before the CUDA runtime unloads
     try {
         const std::vector<std::string> args(argv + 1, argv + argc);  // NOLINT(*-pointer-arithmetic)
         Options o;

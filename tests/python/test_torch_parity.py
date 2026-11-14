@@ -72,3 +72,27 @@ def test_cpp_matches_pytorch(tmp_path: Path, threads: int, batch: int, graphs: i
         # Same fp16 module on the same GPU: measured differences (batch composition) ~5e-4.
         assert float(parts[1]) == pytest.approx(value.item(), abs=5e-3)
         np.testing.assert_allclose(cpp, logits[0].cpu().numpy(), atol=5e-3, rtol=0)
+
+
+TOURNAMENT = ROOT / "build/torch/tournament"
+DEV_LEVELS = ROOT / "build/levels/dev"
+
+
+@pytest.mark.skipif(not (TOURNAMENT.exists() and DEV_LEVELS.is_dir()), reason="needs make build-nn and dev levels")
+def test_tournament_with_a_network_agent_exits_cleanly(tmp_path: Path):
+    # Regression (notebook 2026-11-14): the shared evaluators were static objects destroyed after the CUDA
+    # runtime had unloaded, so a finished tournament aborted at exit ("driver shutting down") and the SPRT
+    # script (set -e) stopped with its batch complete.
+    side = 11
+    model = tmp_path / "net.ts"
+    export.export(export.build("random", side, 32, 2), side, str(model))
+    levels = tmp_path / "levels"
+    levels.mkdir()
+    level = min(DEV_LEVELS.iterdir())
+    (levels / level.name).write_bytes(level.read_bytes())
+    out = tmp_path / "t.csv"
+    run = subprocess.run([str(TOURNAMENT), f"--levels={levels}", f"--agents=PUCT:budget=20:net={model},Random",
+                          "--reps=1", "--obs=partial", "--id=exit", f"--out={out}", "--jobs=2"],
+                         capture_output=True, text=True, check=False)
+    assert run.returncode == 0, run.stderr[-2000:]
+    assert len(out.read_text().splitlines()) == 3  # header + both seatings
