@@ -188,6 +188,19 @@ void TorchEvaluator::evaluate(const Observation& obs, std::span<const Action> ac
     value = static_cast<double>(v);
 }
 
+void TorchEvaluator::begin_search() {
+    const std::scoped_lock lock(mu_);
+    ++searching_;
+}
+
+void TorchEvaluator::end_search() {
+    {
+        const std::scoped_lock lock(mu_);
+        --searching_;
+    }
+    queued_.notify_one();  // the waiting requests may now be all the searching threads have
+}
+
 void TorchEvaluator::run() {
     std::vector<Request*> batch;
     for (;;) {
@@ -197,10 +210,14 @@ void TorchEvaluator::run() {
             if (queue_.empty()) {
                 return;  // stopping
             }
-            if (std::cmp_less(queue_.size(), max_batch_)) {
-                queued_.wait_for(lock, std::chrono::microseconds(max_wait_us_), [this] {
-                    return stop_ || std::cmp_greater_equal(queue_.size(), max_batch_);
-                });
+            // Full when every searching thread waits (or max_batch do); a caller outside
+            // begin_search (raw()) can't be counted, so with none searching only max_batch is full.
+            const auto full = [this] {
+                const int want = searching_ > 0 ? std::min(max_batch_, searching_) : max_batch_;
+                return stop_ || std::cmp_greater_equal(queue_.size(), want);
+            };
+            if (!full()) {
+                queued_.wait_for(lock, std::chrono::microseconds(max_wait_us_), full);
             }
             batch.clear();
             while (!queue_.empty() && std::cmp_less(batch.size(), max_batch_)) {

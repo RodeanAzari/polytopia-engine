@@ -59,9 +59,19 @@ class FakeNet final : public poly::search::LeafEvaluator {
     double value = 0.25;
     Action favourite{};
     bool use_favourite = false;
+    int searching = 0;  // begin_search minus end_search calls
+    int searches = 0;   // begin_search calls
+    int outside = 0;    // evaluate calls outside begin_search/end_search
+
+    void begin_search() override {
+        ++searching;
+        ++searches;
+    }
+    void end_search() override { --searching; }
 
     void evaluate(const poly::Observation& obs, std::span<const Action> actions,
                   std::vector<double>& priors, double& v) override {
+        outside += searching == 1 ? 0 : 1;
         calls.push_back({.observer = obs.observer(),
                          .active = obs.view().active_tribe,
                          .game_over = obs.view().game_over,
@@ -154,6 +164,21 @@ TEST(PuctNet, MacroAndDeterminizedTreesUseTheNetworkToo) {
         std::ranges::count_if(agent.nodes(), [](const auto& n) { return !n.terminal; }));
     ASSERT_GE(net.calls.size(), live);
     EXPECT_EQ(tree_problem(agent, net, std::span<const Call>(net.calls).last(live)), "");
+}
+
+TEST(PuctNet, EachSearchIsBracketedForTheBatcher) {
+    // TorchEvaluator runs a batch once every thread inside begin/end_search waits: one bracket
+    // per decision around all K trees, every evaluation inside it, and closed again afterwards.
+    const GameState s = two_tribes(poly::ObsMode::Partial);
+    FakeNet net;
+    PuctAgent agent(5, {.budget = 200}, &net);
+    const auto l = legal(s);
+    (void)agent.act(poly::observe(s, 0), l);
+    (void)agent.act(poly::observe(s, 0), l);
+    EXPECT_FALSE(net.calls.empty());
+    EXPECT_EQ(net.outside, 0);
+    EXPECT_EQ(net.searches, 2);
+    EXPECT_EQ(net.searching, 0);
 }
 
 TEST(PuctNet, FinishedGamesHoldTheirExactResult) {

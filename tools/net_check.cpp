@@ -1,6 +1,7 @@
 // Parity check for the C++ evaluator (ADR-011 §5, ADR-012 §1): evaluates the first decisions of a
 // record file through TorchEvaluator, with the record's own root edges, from `threads` threads at
-// once (so batching across threads is exercised), and prints one line per decision:
+// once (so batching across threads is exercised; each thread counts as searching, so a batch runs
+// once every thread waits), and prints one line per decision:
 //   <decision> <value> <logit of edge 0> <logit of edge 1> ...
 // tests/python/test_torch_parity.py compares these with the exported module run by PyTorch.
 //
@@ -17,6 +18,7 @@
 #include <vector>
 
 #include "poly/features.hpp"
+#include "search/leaf_eval.hpp"
 #include "selfplay/record.hpp"
 #include "selfplay/torch_evaluator.hpp"
 
@@ -42,6 +44,7 @@ int main(int argc, char** argv) {
         std::vector<std::vector<float>> logits(n);
         std::vector<float> values(n);
         const auto work = [&](int t) {
+            const poly::search::SearchScope scope(&eval);  // as a searching thread would
             poly::Features f;
             std::vector<std::int64_t> edges;
             for (auto i = static_cast<std::size_t>(t); i < n;

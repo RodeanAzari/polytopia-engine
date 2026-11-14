@@ -359,6 +359,7 @@ Action PuctAgent::act(const Observation& obs, std::span<const Action> legal) {
     // summed (the root's edges are the environment's legal set in every tree); K = 0 searches the
     // observation itself.
     const int trees = std::max(1, params_.determinizations);
+    const SearchScope scope(net_);
     summed_.assign(root_legal_.size(), PuctEdge{});
     for (int k = 0; k < trees; ++k) {
         root_state_ = params_.determinizations == 0 ? obs.view() : determinize(obs, rng_, chance_);
