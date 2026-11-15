@@ -1,4 +1,4 @@
-# Polytopia engine: see docs/buildplan.md §3. Targets not yet implemented fail loudly.
+# Polytopia engine. Targets not yet implemented fail loudly.
 TRIBES_REPO   := https://github.com/GAIGResearch/Tribes.git
 TRIBES_COMMIT := 270e7e564630e5ef3dcc04c96dd66f58ef7273f3
 GEN := $(shell command -v ninja >/dev/null 2>&1 && echo "-G Ninja")
