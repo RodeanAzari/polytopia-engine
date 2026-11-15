@@ -1,6 +1,9 @@
 #include "poly/action_encoding.hpp"
 
 #include <cstdlib>
+#include <string>
+
+#include "poly/dump.hpp"
 
 namespace poly {
 
@@ -31,12 +34,20 @@ Tile city_tile(const GameState& s, std::int32_t id) {
     return {};
 }
 
-// Offset channel within a (2r + 1)^2 window without its centre, x-major.
-int offset(Tile from, Tile to, int radius) {
+// Offset channel within a (2r + 1)^2 window without its centre, x-major. Outside the window it
+// aborts with the action and the whole state, so a case the ADR-006 bound missed can be replayed.
+int offset(const GameState& s, const Action& a, Tile from, Tile to, int radius) {
     const int dx = to.x - from.x;
     const int dy = to.y - from.y;
-    check(std::abs(dx) <= radius && std::abs(dy) <= radius && (dx != 0 || dy != 0),
-          "action encoding: target outside the ADR-006 window");
+    if (std::abs(dx) > radius || std::abs(dy) > radius || (dx == 0 && dy == 0)) {
+        const std::string what = "action encoding: target outside the ADR-006 window: type " +
+                                 std::to_string(static_cast<int>(a.type)) + " actor " +
+                                 std::to_string(a.actor) + " target " + std::to_string(a.target) +
+                                 " from (" + std::to_string(from.x) + "," + std::to_string(from.y) +
+                                 ") dx " + std::to_string(dx) + " dy " + std::to_string(dy) +
+                                 " radius " + std::to_string(radius) + "\n" + dump_state(s);
+        check(false, what.c_str());
+    }
     const int side = (2 * radius) + 1;
     const int k = ((dx + radius) * side) + (dy + radius);
     const int centre = (side * side) / 2;
@@ -112,17 +123,17 @@ int encode_in(const GameState& s, int tribe, const Action& a) {
             return spatial(unit_tile(s, a.actor), channel::kHealOthers);
         case ActionType::Move: {
             const Tile from = unit_tile(s, a.actor);
-            return spatial(from, channel::kMove + offset(from, worked, channel::kMoveRadius));
+            return spatial(from, channel::kMove + offset(s, a, from, worked, channel::kMoveRadius));
         }
         case ActionType::Attack: {
             const Tile from = unit_tile(s, a.actor);
             return spatial(from, channel::kAttack +
-                                     offset(from, unit_tile(s, a.target), channel::kAttackRadius));
+                                     offset(s, a, from, unit_tile(s, a.target), channel::kAttackRadius));
         }
         case ActionType::Convert: {
             const Tile from = unit_tile(s, a.actor);
             return spatial(from, channel::kConvert +
-                                     offset(from, unit_tile(s, a.target), channel::kConvertRadius));
+                                     offset(s, a, from, unit_tile(s, a.target), channel::kConvertRadius));
         }
     }
     check(false, "action encoding: unknown action type");
