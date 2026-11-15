@@ -47,8 +47,7 @@ visits at each decision ([game and how it was recorded](docs/media/2026-11-11-he
 | 5 — Evaluation | Not started |
 | 6 — Real game, private matches with consenting humans ([ADR-003](docs/adr/003-real-game-phase.md)) | Not started |
 
-Full scope and each phase's definition of done: [docs/buildplan.md](docs/buildplan.md). Current work:
-[progress.md](progress.md).
+Full scope and each phase's definition of done: [docs/buildplan.md](docs/buildplan.md).
 
 ## Architecture
 

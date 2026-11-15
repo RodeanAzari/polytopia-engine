@@ -15,3 +15,7 @@ docs/refs/
 # Phase 4: LibTorch (make setup-nn; ~2 GB, never committed)
 .deps/
 data/nets/
+
+# Claude Code working docs: kept local only
+/CLAUDE.md
+/progress.md
