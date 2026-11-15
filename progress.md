@@ -27,8 +27,9 @@ Bootstrap done: 2,000 games, 1.39 M decisions (`data/selfplay/bootstrap`); nets 
 `data/nets/` (notebook). Batcher fix `0b723cb` (batch runs when every searching thread waits).
 Pilot SPRT (dev, Fog, vs. PUCT): `PUCT:net=data/nets/boot-vw1-s3000.ts` H1 accepted, +96 Elo (+55 to +141),
 100 pairs (notebook 2026-11-14). `leaf=diff` SPRT stopped at b2 47/200 (resumable).
-Running (stage 2, since 2026-11-14 11:29): gen1 self-play, 2,000 games with the net on both sides; 261 done at
-18:37, restarted on `113d3ee` with `--batch=32 --pipelines=2` (+27% in an A/B); runs detached (`setsid nohup`;
+Running (stage 2, since 2026-11-14 11:29): gen1 self-play, 2,000 games with the net on both sides; 853 done at
+2026-11-15 03:50, ~89 games/h with `--batch=32 --pipelines=2`. Open bug: an encoder window abort (notebook
+2026-11-15); running on the diagnostic build `24c2dde` to catch it; runs detached (`setsid nohup`;
 `ps -eo pid,cmd | grep "[b]uild/runs/.*selfplay"`); command in notebook 2026-11-14 (rerun to resume). **2026-11-15 morning:**
 set up the user's desktop (RTX 3060, Windows, another network) per `docs/desktop-setup.md`: everything needing
 the user's dad (Part A) first and in one go, then Chrome Remote Desktop → WSL + Tailscale + SSH, then work moves there. After gen1: train on bootstrap + gen1, SPRT gen1 vs.
