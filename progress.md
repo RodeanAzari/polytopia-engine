@@ -27,14 +27,13 @@ Bootstrap done: 2,000 games, 1.39 M decisions (`data/selfplay/bootstrap`); nets 
 `data/nets/` (notebook). Batcher fix `0b723cb` (batch runs when every searching thread waits).
 Pilot SPRT (dev, Fog, vs. PUCT): `PUCT:net=data/nets/boot-vw1-s3000.ts` H1 accepted, +96 Elo (+55 to +141),
 100 pairs (notebook 2026-11-14). `leaf=diff` SPRT stopped at b2 47/200 (resumable).
-Running (stage 2, since 2026-11-14 11:29): gen1 self-play, 2,000 games with the net on both sides; 853 done at
-2026-11-15 03:50, ~89 games/h with `--batch=32 --pipelines=2`. Open bug: an encoder window abort (notebook
-2026-11-15); running on the diagnostic build `24c2dde` to catch it; runs detached (`setsid nohup`;
-`ps -eo pid,cmd | grep "[b]uild/runs/.*selfplay"`); command in notebook 2026-11-14 (rerun to resume). **2026-11-15 morning:**
-set up the user's desktop (RTX 3060, Windows, another network) per `docs/desktop-setup.md`: everything needing
-the user's dad (Part A) first and in one go, then Chrome Remote Desktop → WSL + Tailscale + SSH, then work moves there. After gen1: train on bootstrap + gen1, SPRT gen1 vs.
-boot net, then the test-seed headline (vs. PUCT and RHEA, Paper + Fog) for both nets (user, 2026-11-14: no GPU
-pause for it). Pilot-SPRT sidecar `docs/media/2026-11-14-p4-pilot-sprt.md` awaits the user's review. Never two GPU processes at once.
+gen1 self-play (stage 2): **stopped 2026-11-15 11:3x at 874/2,000 games** (the user moves WSL to a new disk).
+Resume: `BIN=build/runs/<hash>-torch/selfplay setsid nohup build/runs/gen1_watchdog.sh &` (reruns after a crash;
+`--batch=32 --pipelines=2`, ~89 games/h). **Open bug:** an encoder abort from two units on one tile (notebook
+2026-11-15); trap on the local branch `diag/unit-grid` (`cc778e3`, not on main), not yet fired. After gen1: train
+on bootstrap + gen1, SPRT gen1 vs. boot, then the test-seed headline for both nets (no GPU pause for it).
+Pilot-SPRT sidecar `docs/media/2026-11-14-p4-pilot-sprt.md` awaits the user's review. Next session: desktop setup
+per `docs/desktop-setup.md` (Part A needs the user's dad: do it first, in one go). Never two GPU processes at once.
 Open from Phase 3: Fog vs. RHEA/MCTS losses unchanged by tuning. Untried: leaf value form, tree reuse, Gumbel.
 Trap: Claude Code kills idle background runs under system memory pressure (4× on 2026-11-12/13; other
 sessions); all runners resume, so just rerun (or start Claude Code with CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1).
